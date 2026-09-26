@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Bus Lines - Đặt Vé Xe Khách Trực Tuyến</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- =======================================================================
+         1. THANH ĐIỀU HƯỚNG NAVBAR
+         ======================================================================= -->
+    <header class="navbar">
+        <div class="nav-left">
+            <div class="brand-logo" onclick="switchTab('home')">
+                <div class="brand-icon">Y</div>
+                <div class="brand-text">
+                    <h1>YOLO Bus Lines</h1>
+                    <span>Chất lượng trên từng chuyến đi</span>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <a class="nav-item active" data-tab="home" onclick="switchTab('home')">
+                    <i class="fa-solid fa-house"></i> Trang chủ
+                </a>
+                <a class="nav-item" data-tab="schedule" onclick="switchTab('schedule')">
+                    <i class="fa-solid fa-calendar-days"></i> Lịch trình
+                </a>
+                <a class="nav-item" data-tab="lookup" onclick="switchTab('lookup')">
+                    <i class="fa-solid fa-ticket"></i> Tra cứu vé
+                </a>
+                <a class="nav-item" data-tab="my-tickets" onclick="switchTab('my-tickets')">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Vé của tôi
+                </a>
+                <a class="nav-item" data-tab="contact" onclick="switchTab('contact')">
+                    <i class="fa-solid fa-headset"></i> Liên hệ
+                </a>
+            </nav>
+        </div>
+
+        <div class="nav-right">
+            <!-- Nút bật/tắt Dark Mode -->
+            <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleDarkMode()" title="Chuyển đổi giao diện Sáng / Tối">
+                <i id="theme-icon" class="fa-solid fa-moon"></i>
+            </button>
+
+            <!-- Hotline -->
+            <div class="hotline-badge">
+                <i class="fa-solid fa-phone-volume"></i>
+                <span>CSKH 24/7:</span>
+                <span class="phone-num">0963076842</span>
+            </div>
+
+            <!-- Khu vực Nút Auth -->
+            <div id="auth-buttons" class="top-right-auth">
+                <button id="btn-open-login" class="btn-auth btn-login" onclick="openAuthModal('login')">Đăng nhập</button>
+                <button id="btn-open-register" class="btn-auth btn-register" onclick="openAuthModal('register')">Đăng ký</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- =======================================================================
+         2. NỘI DUNG CHÍNH (SINGLE PAGE APPLICATION)
+         ======================================================================= -->
+    <div class="hero-section" id="hero-banner">
+        <h2 class="hero-title">YOLO BUS LINES - AN TOÀN TRÊN MỌI NẺO ĐƯỜNG</h2>
+        <p class="hero-subtitle">Hệ thống đặt vé xe khách liên tỉnh trực tuyến nhanh chóng, tiện lợi và an toàn hàng đầu Việt Nam</p>
+    </div>
+
+    <main class="main-container">
+
+        <!-- ===================================================================
+             TAB 1: TRANG CHỦ & ĐẶT VÉ (VIEW HOME)
+             =================================================================== -->
+        <section id="view-home" class="spa-view active">
+            <!-- Khung Tìm Kiếm Chuyến Xe Chuẩn YOLO -->
+            <form id="search-form">
+                <div class="booking-card">
+                    <div class="card-header-options">
+                        <div class="trip-type-group">
+                            <label class="radio-container">
+                                <input type="radio" name="tripType" value="oneWay" checked onchange="toggleTripType()">
+                                <span class="label-text">Một chiều</span>
+                            </label>
+                            <label class="radio-container">
+                                <input type="radio" name="tripType" value="roundTrip" onchange="toggleTripType()">
+                                <span class="label-text">Khứ hồi</span>
+                            </label>
+                        </div>
+                        <a href="#" class="guide-link" id="btn-open-guide" onclick="openGuideModal(); return false;">
+                            <i class="fa-regular fa-circle-question"></i> Hướng dẫn đặt vé
+                        </a>
+                    </div>
+
+                    <div class="search-fields-grid one-way" id="search-grid">
+                        <div class="field-box">
+                            <label><i class="fa-solid fa-location-dot"></i> Điểm đi</label>
+                            <select id="departure" required>
+                                <option value="" disabled selected hidden>Chọn điểm đi</option>
+                                <option value="Sài Gòn" selected>TP. Hồ Chí Minh (Sài Gòn)</option>
+                                <option value="Đà Lạt">Đà Lạt (Lâm Đồng)</option>
+                                <option value="Cần Thơ">Cần Thơ</option>
+                                <option value="Nha Trang">Nha Trang (Khánh Hòa)</option>
+                                <option value="Vũng Tàu">Vũng Tàu</option>
+                                <option value="Phan Thiết">Phan Thiết (Bình Thuận)</option>
+                                <option value="Biên Hòa">Biên Hòa (Đồng Nai)</option>
+                                <option value="Đà Nẵng">Đà Nẵng</option>
+                            </select>
+                        </div>
+
+                        <button type="button" class="btn-swap-locations" id="btn-swap" title="Đảo chiều tuyến xe">
+                            ⇄
+                        </button>
+
+                        <div class="field-box">
+                            <label><i class="fa-solid fa-location-crosshairs"></i> Điểm đến</label>
+                            <select id="destination" required>
+                                <option value="" disabled selected hidden>Chọn điểm đến</option>
+                                <option value="Đà Lạt" selected>Đà Lạt (Lâm Đồng)</option>
+                                <option value="Sài Gòn">TP. Hồ Chí Minh (Sài Gòn)</option>
+                                <option value="Cần Thơ">Cần Thơ</option>
+                                <option value="Nha Trang">Nha Trang (Khánh Hòa)</option>
+                                <option value="Vũng Tàu">Vũng Tàu</option>
+                                <option value="Phan Thiết">Phan Thiết (Bình Thuận)</option>
+                                <option value="Biên Hòa">Biên Hòa (Đồng Nai)</option>
+                                <option value="Đà Nẵng">Đà Nẵng</option>
+                            </select>
+                        </div>
+
+                        <div class="field-box">
+                            <label><i class="fa-regular fa-calendar-check"></i> Ngày đi</label>
+                            <input type="date" id="date" required>
+                        </div>
+
+                        <!-- Ô chọn ngày về (Hiện khi chọn Khứ hồi) -->
+                        <div class="field-box" id="return-date-box" style="display: none;">
+                            <label><i class="fa-regular fa-calendar-plus"></i> Ngày về</label>
+                            <input type="date" id="return-date">
+                        </div>
+
+                        <div class="field-box">
+                            <label><i class="fa-solid fa-user-group"></i> Số vé</label>
+                            <select id="ticket-count">
+                                <option value="1">1 vé</option>
+                                <option value="2">2 vé</option>
+                                <option value="3">3 vé</option>
+                                <option value="4">4 vé</option>
+                                <option value="5">5 vé</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Quick Dates Selector -->
+                    <div class="quick-dates">
+                        <span>Chọn nhanh ngày:</span>
+                        <button type="button" class="quick-date-btn" onclick="setQuickDate(0)">Hôm nay</button>
+                        <button type="button" class="quick-date-btn" onclick="setQuickDate(1)">Ngày mai</button>
+                        <button type="button" class="quick-date-btn" onclick="setQuickDate(2)">Ngày mốt</button>
+                    </div>
+
+                    <button type="submit" class="btn-search-main">
+                        <i class="fa-solid fa-magnifying-glass"></i> Tìm chuyến xe
+                    </button>
+                </div>
+            </form>
+
+            <!-- Tuyến Đường Phổ Biến (Shortcuts) -->
+            <div class="popular-routes-bar">
+                <div class="popular-routes-header">
+                    <h3><i class="fa-solid fa-fire" style="color: var(--yolo-blue);"></i> Tuyến đường phổ biến YOLO Bus Lines</h3>
+                    <small style="color: var(--text-muted);">Nhấn vào để tìm kiếm nhanh</small>
+                </div>
+                <div class="popular-chips-container">
+                    <div class="route-chip" onclick="quickSelectRoute('Sài Gòn', 'Đà Lạt')">
+                        <span>Sài Gòn ➔ Đà Lạt</span>
+                        <span class="price">290.000đ</span>
+                    </div>
+                    <div class="route-chip" onclick="quickSelectRoute('Sài Gòn', 'Cần Thơ')">
+                        <span>Sài Gòn ➔ Cần Thơ</span>
+                        <span class="price">165.000đ</span>
+                    </div>
+                    <div class="route-chip" onclick="quickSelectRoute('Sài Gòn', 'Nha Trang')">
+                        <span>Sài Gòn ➔ Nha Trang</span>
+                        <span class="price">310.000đ</span>
+                    </div>
+                    <div class="route-chip" onclick="quickSelectRoute('Sài Gòn', 'Vũng Tàu')">
+                        <span>Sài Gòn ➔ Vũng Tàu</span>
+                        <span class="price">140.000đ</span>
+                    </div>
+                    <div class="route-chip" onclick="quickSelectRoute('Đà Lạt', 'Sài Gòn')">
+                        <span>Đà Lạt ➔ Sài Gòn</span>
+                        <span class="price">290.000đ</span>
+                    </div>
+                    <div class="route-chip" onclick="quickSelectRoute('Biên Hòa', 'Đà Lạt')">
+                        <span>Biên Hòa ➔ Đà Lạt</span>
+                        <span class="price">290.000đ</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Khu vực Danh Sách Chuyến Xe Tìm Thấy -->
+            <div class="results-container" id="results-section" style="display: none;">
+                <!-- Thanh Lọc & Sắp Xếp Chuyến Xe -->
+                <div class="filter-sort-bar">
+                    <div class="filter-group">
+                        <label><i class="fa-solid fa-filter"></i> Lọc giờ đi:</label>
+                        <div class="time-filter-chips">
+                            <span class="time-chip active" onclick="filterByTimeSlot('all')">Tất cả</span>
+                            <span class="time-chip" onclick="filterByTimeSlot('early')">Sáng sớm (0-6h)</span>
+                            <span class="time-chip" onclick="filterByTimeSlot('morning')">Sáng (6-12h)</span>
+                            <span class="time-chip" onclick="filterByTimeSlot('afternoon')">Chiều (12-18h)</span>
+                            <span class="time-chip" onclick="filterByTimeSlot('evening')">Tối (18-24h)</span>
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Loại xe:</label>
+                        <select id="filter-bus-type" class="filter-select" onchange="applyTripFilters()">
+                            <option value="all">Tất cả loại xe</option>
+                            <option value="Giường nằm">Giường nằm 40 chỗ</option>
+                            <option value="Limousine">Limousine VIP 34 phòng</option>
+                            <option value="Cabin">Cabin 22 phòng VIP</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Sắp xếp:</label>
+                        <select id="sort-trips" class="filter-select" onchange="applyTripFilters()">
+                            <option value="time-asc">Giờ đi sớm nhất</option>
+                            <option value="time-desc">Giờ đi muộn nhất</option>
+                            <option value="price-asc">Giá: Thấp đến Cao</option>
+                            <option value="price-desc">Giá: Cao đến Thấp</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="trip-results"></div>
+            </div>
+
+            <!-- QUY TRÌNH ĐẶT VÉ TỪNG BƯỚC (BOOKING WIZARD) -->
+            <div id="booking-wizard" class="booking-wizard-container" style="display: none;">
+                <div class="wizard-steps-header">
+                    <div class="wizard-step active" id="step-tab-1">
+                        <span class="step-num">1</span>
+                        <span>Chọn vị trí ghế</span>
+                    </div>
+                    <div class="wizard-step" id="step-tab-2">
+                        <span class="step-num">2</span>
+                        <span>Điểm đón trả & Khách hàng</span>
+                    </div>
+                    <div class="wizard-step" id="step-tab-3">
+                        <span class="step-num">3</span>
+                        <span>Thanh toán & Xuất vé</span>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 1: SƠ ĐỒ CHỌN GHẾ 2 TẦNG -->
+                <div class="wizard-body" id="wizard-step-1">
+                    <div id="seat-map-header" style="text-align: center; margin-bottom: 16px;"></div>
+
+                    <div class="seat-legend">
+                        <div class="legend-item">
+                            <span class="seat-demo available"></span>
+                            <span>Ghế trống</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="seat-demo selected"></span>
+                            <span>Đang chọn</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="seat-demo booked"></span>
+                            <span>Đã có người đặt</span>
+                        </div>
+                    </div>
+
+                    <div class="decks-wrapper">
+                        <!-- TẦNG DƯỚI (DECK 1) -->
+                        <div class="deck-column">
+                            <div class="deck-title">
+                                <i class="fa-solid fa-layer-group" style="color: var(--yolo-blue);"></i> TẦNG DƯỚI (Tầng 1)
+                            </div>
+                            <div class="front-bus-indicator">
+                                <span><i class="fa-solid fa-steering-wheel"></i> Bác tài</span>
+                                <span>Cửa lên xuống <i class="fa-solid fa-door-open"></i></span>
+                            </div>
+                            <div id="deck-1-seats" class="seat-grid"></div>
+                        </div>
+
+                        <!-- TẦNG TRÊN (DECK 2) -->
+                        <div class="deck-column">
+                            <div class="deck-title">
+                                <i class="fa-solid fa-layer-group" style="color: var(--yolo-blue);"></i> TẦNG TRÊN (Tầng 2)
+                            </div>
+                            <div class="front-bus-indicator">
+                                <span>Phía trước xe</span>
+                                <span>Lối lên cầu thang <i class="fa-solid fa-stairs"></i></span>
+                            </div>
+                            <div id="deck-2-seats" class="seat-grid"></div>
+                        </div>
+                    </div>
+
+                    <!-- Thanh Tóm Tắt Ghế Đã Chọn -->
+                    <div class="seat-summary-bar">
+                        <div class="selected-seats-info">
+                            Ghế đang chọn: <strong id="summary-seats-text">Chưa chọn ghế</strong>
+                            <span id="seat-limit-hint" style="color: var(--text-muted); font-size: 13px; margin-left: 8px;"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 20px;">
+                            <div class="seat-total-price">
+                                Tổng tiền: <span class="amount" id="summary-price-text">0 đ</span>
+                            </div>
+                            <button type="button" class="btn-proceed" id="btn-to-step-2" disabled onclick="goToStep(2)">
+                                Tiếp tục <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 2: THÔNG TIN HÀNH KHÁCH & ĐIỂM ĐÓN TRẢ -->
+                <div class="wizard-body" id="wizard-step-2" style="display: none;">
+                    <h3 style="font-size: 17px; font-weight: 800; color: var(--text-main); margin-bottom: 20px;">
+                        <i class="fa-solid fa-id-card" style="color: var(--yolo-blue);"></i> Thông tin người đi & Điểm đón trả
+                    </h3>
+
+                    <div class="passenger-form-grid">
+                        <div class="form-group">
+                            <label>Họ và tên hành khách <span style="color:red;">*</span></label>
+                            <input type="text" id="cust-name" placeholder="Nguyễn Văn A" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Số điện thoại nhận vé <span style="color:red;">*</span></label>
+                            <input type="tel" id="cust-phone" placeholder="0901234567" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email (nhận vé điện tử)</label>
+                            <input type="email" id="cust-email" placeholder="example@gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú cho nhà xe</label>
+                            <input type="text" id="cust-note" placeholder="VD: Mang theo trẻ nhỏ, hành lý xách tay...">
+                        </div>
+                    </div>
+
+                    <!-- Điểm đón & trả -->
+                    <div class="pickup-dropoff-section">
+                        <h4><i class="fa-solid fa-route" style="color: var(--yolo-blue);"></i> Điểm đón và điểm trả khách</h4>
+                        <div class="passenger-form-grid">
+                            <div class="form-group">
+                                <label>Điểm đón khách <span style="color:red;">*</span></label>
+                                <select id="select-pickup" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Điểm trả khách <span style="color:red;">*</span></label>
+                                <select id="select-dropoff" required></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Điều khoản -->
+                    <div class="terms-agreement">
+                        <input type="checkbox" id="accept-terms" checked>
+                        <label for="accept-terms">
+                            Tôi xác nhận các thông tin trên là chính xác và đồng ý với 
+                            <a href="#" style="color: var(--yolo-blue); font-weight: 600;">Quy định đặt vé & Vận chuyển</a> của YOLO Bus Lines.
+                        </label>
+                    </div>
+
+                    <div class="wizard-actions">
+                        <button type="button" class="btn-back-step" onclick="goToStep(1)">
+                            <i class="fa-solid fa-arrow-left"></i> Quay lại chọn ghế
+                        </button>
+                        <button type="button" class="btn-proceed" onclick="goToStep(3)">
+                            Tiếp tục thanh toán <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 3: THANH TOÁN & XÁC NHẬN -->
+                <div class="wizard-body" id="wizard-step-3" style="display: none;">
+                    <div class="payment-grid">
+                        <div class="payment-methods-col">
+                            <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 16px; color: var(--text-main);">
+                                <i class="fa-solid fa-wallet" style="color: var(--yolo-blue);"></i> Chọn phương thức thanh toán
+                            </h3>
+
+                            <div class="payment-methods-list">
+                                <label class="pay-method-card active" onclick="selectPayMethod('VNPAY-QR')">
+                                    <input type="radio" name="payMethod" value="VNPAY-QR" checked>
+                                    <i class="fa-solid fa-qrcode" style="font-size: 24px; color: var(--yolo-blue);"></i>
+                                    <div class="pay-method-info">
+                                        <h5>VNPAY-QR / MoMo / ZaloPay</h5>
+                                        <p>Quét mã QR thanh toán nhanh bằng ứng dụng ngân hàng hoặc ví điện tử</p>
+                                    </div>
+                                </label>
+
+                                <label class="pay-method-card" onclick="selectPayMethod('BANKING')">
+                                    <input type="radio" name="payMethod" value="BANKING">
+                                    <i class="fa-solid fa-building-columns" style="font-size: 24px; color: #16a34a;"></i>
+                                    <div class="pay-method-info">
+                                        <h5>Chuyển khoản Internet Banking</h5>
+                                        <p>Chuyển khoản trực tiếp tới số tài khoản công ty YOLO Bus Lines</p>
+                                    </div>
+                                </label>
+
+                                <label class="pay-method-card" onclick="selectPayMethod('CASH')">
+                                    <input type="radio" name="payMethod" value="CASH">
+                                    <i class="fa-solid fa-money-bill-wave" style="font-size: 24px; color: #ea580c;"></i>
+                                    <div class="pay-method-info">
+                                        <h5>Thanh toán tại quầy khi lên xe</h5>
+                                        <p>Giữ chỗ trong vòng 24h, thanh toán trực tiếp tại phòng vé trước giờ khởi hành</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Khu vực QR code giả lập -->
+                            <div class="qr-payment-box" id="qr-section">
+                                <div style="font-size: 13.5px; font-weight: 700; color: var(--text-main);">
+                                    Quét mã QR dưới đây để hoàn tất thanh toán
+                                </div>
+                                <div class="qr-image-wrapper">
+                                    <img id="qr-code-img" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=YOLO-PAYMENT" alt="QR Payment">
+                                </div>
+                                <div class="countdown-timer">
+                                    Thời gian giữ chỗ còn: <strong id="countdown-text">05:00</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cột Tóm Tắt Đơn Hàng -->
+                        <div class="order-summary-sidebar">
+                            <h4><i class="fa-solid fa-receipt" style="color: var(--yolo-blue);"></i> Thông tin chuyến đi</h4>
+                            <div class="summary-row">
+                                <span class="label">Tuyến xe:</span>
+                                <span class="val" id="sum-route">Sài Gòn ➔ Đà Lạt</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Thời gian:</span>
+                                <span class="val" id="sum-time">--:--</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Loại xe:</span>
+                                <span class="val" id="sum-bus-type">Giường nằm</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Vị trí ghế:</span>
+                                <span class="val" id="sum-seats" style="color: var(--yolo-blue);">--</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Điểm đón:</span>
+                                <span class="val" id="sum-pickup" style="font-size: 12px;">--</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Điểm trả:</span>
+                                <span class="val" id="sum-dropoff" style="font-size: 12px;">--</span>
+                            </div>
+
+                            <div class="summary-total-row">
+                                <span>TỔNG TIỀN:</span>
+                                <span class="total-amount" id="sum-total">0 đ</span>
+                            </div>
+
+                            <button type="button" class="btn-proceed" style="width: 100%; margin-top: 20px; padding: 13px;" onclick="confirmBooking()">
+                                <i class="fa-solid fa-check"></i> Xác nhận & Hoàn tất
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="wizard-actions">
+                        <button type="button" class="btn-back-step" onclick="goToStep(2)">
+                            <i class="fa-solid fa-arrow-left"></i> Quay lại thông tin
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 4: VÉ ĐIỆN TỬ HOÀN THÀNH (E-TICKET / BOARDING PASS) -->
+                <div class="wizard-body" id="wizard-step-4" style="display: none;">
+                    <div class="ticket-success-wrapper">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <i class="fa-solid fa-circle-check" style="font-size: 48px; color: #10b981;"></i>
+                            <h2 style="color: var(--yolo-green); font-size: 22px; margin-top: 8px;">ĐẶT VÉ XE THÀNH CÔNG!</h2>
+                            <p style="color: var(--text-muted); font-size: 13.5px;">Vé điện tử đã được xác nhận. Vui lòng lưu lại mã vé để lên xe.</p>
+                        </div>
+
+                        <div class="eticket-card" id="printable-ticket">
+                            <div class="eticket-header">
+                                <div class="ticket-brand">
+                                    <h3>YOLO BUS LINES</h3>
+                                    <span>CHẤT LƯỢNG LÀ DANH DỰ</span>
+                                </div>
+                                <div class="ticket-code-tag" id="ticket-card-code">
+                                    MÃ VÉ: YOLO-XXXXXX
+                                </div>
+                            </div>
+
+                            <div class="eticket-body">
+                                <div class="ticket-route-banner">
+                                    <span class="route-text" id="ticket-card-route">Sài Gòn ➔ Đà Lạt</span>
+                                    <span style="background: #10b981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;">
+                                        ĐÃ XÁC NHẬN
+                                    </span>
+                                </div>
+
+                                <div class="ticket-details-grid">
+                                    <div class="ticket-item">
+                                        <div class="lbl">Hành khách</div>
+                                        <div class="val" id="ticket-card-name">--</div>
+                                    </div>
+                                    <div class="ticket-item">
+                                        <div class="lbl">Số điện thoại</div>
+                                        <div class="val" id="ticket-card-phone">--</div>
+                                    </div>
+                                    <div class="ticket-item">
+                                        <div class="lbl">Thời gian khởi hành</div>
+                                        <div class="val" id="ticket-card-time">--</div>
+                                    </div>
+                                    <div class="ticket-item">
+                                        <div class="lbl">Số ghế</div>
+                                        <div class="val" id="ticket-card-seats" style="color: var(--yolo-blue); font-size: 16px;">--</div>
+                                    </div>
+                                    <div class="ticket-item">
+                                        <div class="lbl">Điểm đón</div>
+                                        <div class="val" id="ticket-card-pickup" style="font-size: 12.5px;">--</div>
+                                    </div>
+                                    <div class="ticket-item">
+                                        <div class="lbl">Điểm trả</div>
+                                        <div class="val" id="ticket-card-dropoff" style="font-size: 12.5px;">--</div>
+                                    </div>
+                                    <div class="ticket-item">
+                                        <div class="lbl">Loại xe</div>
+                                        <div class="val" id="ticket-card-bus">--</div>
+                                    </div>
+                                    <div class="ticket-item">
+                                        <div class="lbl">Tổng tiền đã thanh toán</div>
+                                        <div class="val" id="ticket-card-total" style="color: var(--yolo-blue);">--</div>
+                                    </div>
+                                </div>
+
+                                <div class="ticket-footer-qr">
+                                    <div>
+                                        <p style="font-size: 12px; color: var(--text-muted);">
+                                            Vui lòng có mặt tại điểm đón trước <strong>30 phút</strong>.<br>
+                                            Hotline CSKH: <strong>0963076842</strong> | Email: <strong>hien05082006@gmail.com</strong>
+                                        </p>
+                                    </div>
+                                    <img id="ticket-card-qr" class="ticket-qr-img" src="" alt="Ticket QR">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ticket-print-actions">
+                            <button type="button" class="btn-print-ticket" onclick="window.print()">
+                                <i class="fa-solid fa-print"></i> In vé / Lưu PDF
+                            </button>
+                            <button type="button" class="btn-new-booking" onclick="resetToHome()">
+                                <i class="fa-solid fa-plus"></i> Đặt chuyến khác
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             TAB 2: LỊCH TRÌNH CÁC TUYẾN XE (VIEW SCHEDULE)
+             =================================================================== -->
+        <section id="view-schedule" class="spa-view" style="display: none;">
+            <div class="page-container">
+                <div class="page-header">
+                    <h2 class="page-title"><i class="fa-solid fa-calendar-days" style="color: var(--yolo-blue);"></i> Lịch Trình Các Tuyến Xe YOLO Bus Lines</h2>
+                    <p class="page-subtitle">Bảng tra cứu giờ xuất bến, loại xe, cự ly và giá vé niêm yết trên toàn quốc</p>
+                </div>
+
+                <div style="margin-bottom: 20px; max-width: 400px;">
+                    <div class="field-box">
+                        <label>Tìm kiếm tuyến đường:</label>
+                        <input type="text" id="search-schedule-input" placeholder="Nhập tên tỉnh/thành (VD: Đà Lạt, Cần Thơ...)" oninput="filterScheduleTable()">
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>Tuyến đường</th>
+                                <th>Cự ly</th>
+                                <th>Thời gian chạy</th>
+                                <th>Loại xe phục vụ</th>
+                                <th>Tần suất</th>
+                                <th>Giá vé tham khảo</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedule-table-body">
+                            <!-- Dữ liệu đổ từ API -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             TAB 3: TRA CỨU VÉ ĐÃ ĐẶT (VIEW LOOKUP)
+             =================================================================== -->
+        <section id="view-lookup" class="spa-view" style="display: none;">
+            <div class="page-container">
+                <div class="page-header">
+                    <h2 class="page-title"><i class="fa-solid fa-ticket" style="color: var(--yolo-blue);"></i> Tra Cứu Thông Tin Vé</h2>
+                    <p class="page-subtitle">Kiểm tra thông tin vé, tình trạng thanh toán, in lại vé điện tử hoặc yêu cầu hủy vé</p>
+                </div>
+
+                <div class="lookup-form-box">
+                    <form id="lookup-form" onsubmit="handleLookupTicket(event)">
+                        <div class="input-group">
+                            <label>Mã vé điện tử <span style="color:red;">*</span></label>
+                            <input type="text" id="lookup-code" placeholder="VD: YOLO-101884" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Số điện thoại đặt vé <span style="color:red;">*</span></label>
+                            <input type="tel" id="lookup-phone" placeholder="VD: 0933445566" required>
+                        </div>
+                        <button type="submit" class="btn-lookup-submit">
+                            <i class="fa-solid fa-magnifying-glass"></i> Tra cứu vé
+                        </button>
+                    </form>
+                </div>
+
+                <div id="lookup-result-container"></div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             TAB 4: VÉ CỦA TÔI (VIEW MY TICKETS)
+             =================================================================== -->
+        <section id="view-my-tickets" class="spa-view" style="display: none;">
+            <div class="page-container">
+                <div class="page-header">
+                    <h2 class="page-title"><i class="fa-solid fa-clock-rotate-left" style="color: var(--yolo-blue);"></i> Lịch Sử Đặt Vé Của Tôi</h2>
+                    <p class="page-subtitle">Quản lý toàn bộ danh sách vé đã đặt của tài khoản</p>
+                </div>
+
+                <div id="my-tickets-auth-prompt" style="text-align: center; padding: 40px 20px; display: none;">
+                    <i class="fa-solid fa-user-lock" style="font-size: 44px; color: var(--text-muted); margin-bottom: 12px;"></i>
+                    <p style="font-size: 15px; color: var(--text-sub); margin-bottom: 16px;">
+                        Vui lòng đăng nhập để xem lịch sử vé của bạn, hoặc nhập số điện thoại để tra cứu:
+                    </p>
+                    <div style="max-width: 340px; margin: 0 auto; display: flex; gap: 8px;">
+                        <input type="tel" id="my-tickets-phone-input" placeholder="Nhập SĐT của bạn" style="flex: 1; padding: 9px 14px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-input); color: var(--text-main);">
+                        <button type="button" class="btn-auth btn-register" onclick="loadMyTicketsByPhone()">Xem vé</button>
+                    </div>
+                </div>
+
+                <div id="my-tickets-list"></div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             TAB 5: LIÊN HỆ & TRỤ SỞ CHÍNH (VIEW CONTACT)
+             =================================================================== -->
+        <section id="view-contact" class="spa-view" style="display: none;">
+            <div class="page-container">
+                <div class="page-header">
+                    <h2 class="page-title"><i class="fa-solid fa-headset" style="color: var(--yolo-blue);"></i> Trung Tâm Hỗ Trợ & Trụ Sở Chính YOLO Bus Lines</h2>
+                    <p class="page-subtitle">Hỗ trợ khách hàng 24/7 trên toàn quốc</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <!-- Thẻ 1: Kênh hỗ trợ trực tuyến -->
+                    <div style="background: var(--yolo-blue-light); border-radius: 12px; padding: 24px; border: 1.5px solid var(--yolo-blue-border);">
+                        <h3 style="color: var(--yolo-blue); font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-phone-volume"></i> Kênh hỗ trợ khách hàng trực tuyến
+                        </h3>
+                        <p style="margin-bottom: 12px; font-size: 14.5px;">
+                            <strong>Tổng đài đặt vé & CSKH:</strong><br>
+                            <a href="tel:0963076842" style="color: var(--yolo-blue); font-size: 22px; font-weight: 800; text-decoration: none;">0963076842</a>
+                        </p>
+                        <p style="margin-bottom: 12px; font-size: 14.5px;">
+                            <strong>Email hỗ trợ chính thức:</strong><br>
+                            <a href="mailto:hien05082006@gmail.com" style="color: var(--yolo-blue); font-size: 16px; font-weight: 700; text-decoration: none;">hien05082006@gmail.com</a>
+                        </p>
+                        <p style="margin-bottom: 10px; font-size: 13.5px; color: var(--text-sub);">
+                            <i class="fa-solid fa-clock"></i> Thời gian phục vụ: <strong>24/7 tất cả các ngày trong tuần</strong> (kể cả Lễ, Tết).
+                        </p>
+                    </div>
+
+                    <!-- Thẻ 2: Trụ sở chính & Văn phòng đại diện duy nhất -->
+                    <div style="background: var(--bg-card); border-radius: 12px; padding: 24px; border: 1.5px solid var(--border-color);">
+                        <h3 style="color: var(--text-main); font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-building"></i> Trụ sở chính & Văn phòng đại diện
+                        </h3>
+                        <div style="font-size: 14px; line-height: 1.8; color: var(--text-sub);">
+                            <p><strong>Đơn vị:</strong> Công ty Cổ phần Vận tải Xe khách YOLO Bus Lines</p>
+                            <p><strong>Địa chỉ duy nhất:</strong> <span style="color: var(--yolo-blue); font-weight: 700; font-size: 15px;">1 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh</span></p>
+                            <p><strong>Chức năng:</strong> Trụ sở điều hành, Phòng bán vé trực tiếp, Tiếp nhận khiếu nại & Xe trung chuyển nội thành.</p>
+                            <p><strong>Hotline:</strong> 0963076842</p>
+                            <p><strong>Email:</strong> hien05082006@gmail.com</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- =======================================================================
+         3. MODAL ĐĂNG NHẬP / ĐĂNG KÝ
+         ======================================================================= -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="btn-close-modal" onclick="closeAuthModal()">&times;</span>
+
+            <!-- FORM ĐĂNG NHẬP -->
+            <div id="login-section">
+                <h2 class="modal-title">Đăng Nhập YOLO</h2>
+                <form id="login-form">
+                    <div class="input-group">
+                        <label>Số điện thoại</label>
+                        <input type="tel" id="login-phone" placeholder="Nhập số điện thoại" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Mật khẩu</label>
+                        <input type="password" id="login-password" placeholder="Nhập mật khẩu" required>
+                    </div>
+                    <button type="submit" class="btn-submit">Đăng nhập</button>
+                    <div class="toggle-form">
+                        Bạn chưa có tài khoản? <a href="#" id="link-to-register" onclick="openAuthModal('register'); return false;">Đăng ký ngay</a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- FORM ĐĂNG KÝ -->
+            <div id="register-section" style="display: none;">
+                <h2 class="modal-title">Đăng Ký Tài Khoản</h2>
+                <form id="register-form">
+                    <div class="input-group">
+                        <label>Họ và tên</label>
+                        <input type="text" id="reg-fullname" placeholder="Họ và tên của bạn" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Số điện thoại <small style="color: var(--text-muted);">(10-11 số, bắt đầu bằng số 0)</small></label>
+                        <input type="tel" id="reg-phone" placeholder="VD: 0963076842" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Email (tùy chọn)</label>
+                        <input type="email" id="reg-email" placeholder="example@gmail.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Mật khẩu <small style="color: var(--text-muted);">(Ít nhất 6 ký tự, gồm chữ hoa, chữ thường và số)</small></label>
+                        <input type="password" id="reg-password" placeholder="VD: Yolo123" required>
+                    </div>
+                    <button type="submit" class="btn-submit">Đăng ký</button>
+                    <div class="toggle-form">
+                        Đã có tài khoản? <a href="#" id="link-to-login" onclick="openAuthModal('login'); return false;">Đăng nhập</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- =======================================================================
+         4. MODAL HƯỚNG DẪN MUA VÉ
+         ======================================================================= -->
+    <div id="guide-modal" class="modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <span class="close-btn" id="btn-close-guide" onclick="closeGuideModal()">&times;</span>
+            <h2 class="modal-title" style="color: var(--yolo-blue);">
+                <i class="fa-regular fa-circle-question"></i> Hướng Dẫn Mua Vé Xe
+            </h2>
+            <div style="font-size: 14px; line-height: 1.7; color: var(--text-sub);">
+                <p><strong>Bước 1:</strong> Chọn <em>Điểm đi, Điểm đến, Ngày khởi hành</em> và số lượng vé mong muốn, sau đó nhấn <strong>Tìm chuyến xe</strong>.</p>
+                <p><strong>Bước 2:</strong> Xem danh sách các chuyến có giờ xuất bến phù hợp, lọc theo loại xe (Giường nằm, Limousine) và nhấn <strong>Chọn chuyến</strong>.</p>
+                <p><strong>Bước 3:</strong> Xem sơ đồ 2 tầng (Tầng dưới / Tầng trên), chọn các vị trí ghế màu trắng bạn mong muốn.</p>
+                <p><strong>Bước 4:</strong> Điền thông tin hành khách, chọn trạm đón / trả xe hoặc đăng ký xe trung chuyển đón tận nơi.</p>
+                <p><strong>Bước 5:</strong> Quét mã QR thanh toán và nhận <strong>Vé điện tử (E-Ticket)</strong> có mã đặt chỗ để lên xe.</p>
+            </div>
+            <button type="button" class="btn-submit" style="margin-top: 20px;" onclick="closeGuideModal()">Đã hiểu</button>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container"></div>
+
+    <!-- =======================================================================
+         5. FOOTER
+         ======================================================================= -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-col">
+                <h4>YOLO BUS LINES</h4>
+                <p>Công ty Cổ phần Vận tải Xe khách YOLO Bus Lines với phương châm <em>"Chất lượng là danh dự"</em>, cam kết mang đến những chuyến đi an toàn, văn minh và tiện nghi nhất cho hành khách.</p>
+                <p><i class="fa-solid fa-phone"></i> Hotline CSKH: <strong>0963076842</strong></p>
+                <p><i class="fa-solid fa-envelope"></i> Email: <strong>hien05082006@gmail.com</strong></p>
+                <p><i class="fa-solid fa-location-dot"></i> Trụ sở: 1 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP.HCM</p>
+            </div>
+            <div class="footer-col">
+                <h4>Tuyến Đường Trọng Điểm</h4>
+                <ul>
+                    <li><a href="#" onclick="quickSelectRoute('Sài Gòn', 'Đà Lạt')">Sài Gòn ➔ Đà Lạt</a></li>
+                    <li><a href="#" onclick="quickSelectRoute('Sài Gòn', 'Cần Thơ')">Sài Gòn ➔ Cần Thơ</a></li>
+                    <li><a href="#" onclick="quickSelectRoute('Sài Gòn', 'Nha Trang')">Sài Gòn ➔ Nha Trang</a></li>
+                    <li><a href="#" onclick="quickSelectRoute('Sài Gòn', 'Vũng Tàu')">Sài Gòn ➔ Vũng Tàu</a></li>
+                    <li><a href="#" onclick="quickSelectRoute('Đà Lạt', 'Đà Nẵng')">Đà Lạt ➔ Đà Nẵng</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Hỗ Trợ & Tiện Ích</h4>
+                <ul>
+                    <li><a href="#" onclick="switchTab('lookup')">Tra cứu vé đã mua</a></li>
+                    <li><a href="#" onclick="switchTab('schedule')">Bảng lịch trình toàn quốc</a></li>
+                    <li><a href="#" onclick="openGuideModal()">Hướng dẫn đặt vé online</a></li>
+                    <li><a href="#" onclick="switchTab('contact')">Liên hệ & Trụ sở chính</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Thanh Toán An Toàn</h4>
+                <p>Hỗ trợ thanh toán qua VNPAY-QR, Thẻ ATM nội địa, Thẻ quốc tế Visa/Mastercard, Ví điện tử MoMo, ZaloPay và Giữ chỗ tại quầy vé.</p>
+                <div style="font-size: 26px; display: flex; gap: 12px; color: #cbd5e1; margin-top: 10px;">
+                    <i class="fa-brands fa-cc-visa"></i>
+                    <i class="fa-brands fa-cc-mastercard"></i>
+                    <i class="fa-solid fa-qrcode"></i>
+                    <i class="fa-solid fa-building-columns"></i>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2026 YOLO Bus Lines - Hệ thống Đặt vé xe khách trực tuyến. Tất cả các quyền được bảo lưu.
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>
