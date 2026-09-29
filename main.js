@@ -43,6 +43,17 @@ const appState = {
     countdownSeconds: 300 // 5 phút
 };
 
+let sepayInterval = null;
+let currentSepayBooking = null;
+
+// Lấy ngày theo giờ địa phương (tránh lỗi múi giờ UTC/GMT 0 của toISOString)
+const getLocalDateStr = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // =======================================================================
 // 1. KHỞI TẠO ỨNG DỤNG & THIẾT LẬP BAN ĐẦU
 // =======================================================================
@@ -50,8 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Khởi tạo giao diện Dark Mode
     initTheme();
 
-    // 2. Đặt ngày mặc định là hôm nay
-    const today = new Date().toISOString().split('T')[0];
+    // 2. Đặt ngày mặc định là hôm nay theo giờ địa phương
+    const today = getLocalDateStr();
     const dateInput = document.getElementById('date');
     if (dateInput) {
         dateInput.value = today;
@@ -252,7 +263,14 @@ function toggleTripType() {
         if (depDate) {
             const d = new Date(depDate);
             d.setDate(d.getDate() + 1);
-            document.getElementById('return-date').value = d.toISOString().split('T')[0];
+            const returnDateStr = getLocalDateStr(d);
+            const returnDateInput = document.getElementById('return-date');
+            if (returnDateInput) {
+                returnDateInput.value = returnDateStr;
+                if (returnDateInput._flatpickr) {
+                    returnDateInput._flatpickr.setDate(returnDateStr, true);
+                }
+            }
         }
     } else {
         returnBox.style.display = 'none';
@@ -263,10 +281,13 @@ function toggleTripType() {
 function setQuickDate(offsetDays) {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getLocalDateStr(d);
     const dateInput = document.getElementById('date');
     if (dateInput) {
         dateInput.value = dateStr;
+        if (dateInput._flatpickr) {
+            dateInput._flatpickr.setDate(dateStr, true);
+        }
     }
 }
 
@@ -323,12 +344,13 @@ async function performSearch() {
 }
 
 // Lọc & Sắp xếp chuyến xe
-function filterByTimeSlot(slot) {
+function filterByTimeSlot(slot, e) {
     appState.activeTimeSlot = slot;
     document.querySelectorAll('.time-chip').forEach(el => {
         el.classList.remove('active');
     });
-    event.target.classList.add('active');
+    const target = e?.currentTarget || e?.target || event?.target;
+    if (target) target.classList.add('active');
     applyTripFilters();
 }
 
@@ -690,10 +712,11 @@ function prepareStep3() {
     document.getElementById('sum-total').innerText = `${Number(totalAmount).toLocaleString('vi-VN')} đ`;
 }
 
-function selectPayMethod(method) {
+function selectPayMethod(method, e) {
     appState.selectedPayMethod = method;
     document.querySelectorAll('.pay-method-card').forEach(el => el.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    const target = e?.currentTarget || event?.currentTarget || document.querySelector(`.pay-method-card input[value="${method}"]`)?.closest('.pay-method-card');
+    if (target) target.classList.add('active');
 }
 
 function startCountdown() {
@@ -1328,8 +1351,6 @@ function switchLoginRole(role) {
 // =======================================================================
 // 12. LOGIC THANH TOÁN SEPAY (POLLING)
 // =======================================================================
-let sepayInterval = null;
-let currentSepayBooking = null;
 
 function openSePayModal(booking) {
     currentSepayBooking = booking;

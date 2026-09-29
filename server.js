@@ -866,7 +866,7 @@ app.get('/api/payment/sepay/check/:code', async (req, res) => {
         // Lấy thông tin vé để biết số tiền
         let booking = null;
         if (useMSSQL) {
-            const check = await mssqlPool.request().input('code', sql.VarChar, code.toUpperCase()).query('SELECT BookingID, TotalAmount, PaymentStatus FROM Booking WHERE BookingCode = @code');
+            const check = await mssqlPool.request().input('code', sql.VarChar, code.toUpperCase()).query('SELECT BookingID, TotalAmount, PaymentStatus, CreatedAt FROM Booking WHERE BookingCode = @code');
             if (check.recordset.length) booking = check.recordset[0];
         } else {
             booking = dbData.bookings.find(b => b.bookingCode.toUpperCase() === code.toUpperCase());
@@ -879,32 +879,111 @@ app.get('/api/payment/sepay/check/:code', async (req, res) => {
             return res.json({ success: true, message: 'Đã thanh toán thành công' });
         }
 
-        const totalAmount = booking.TotalAmount || booking.totalAmount;
+        const totalAmount = Number(booking.TotalAmount || booking.totalAmount || 0);
+        const bookingTime = new Date(booking.CreatedAt || booking.createdAt || 0).getTime();
 
-        // Gọi SePay API kiểm tra giao dịch theo nội dung chuyển khoản là mã vé
-        const sepayRes = await fetch(`https://my.sepay.vn/userapi/transactions/list?memo=${code.toUpperCase()}`, {
+        // Chuẩn hóa mã vé (loại bỏ ký tự đặc biệt, viết hoa)
+        const normCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const numCode = code.replace(/\D/g, ''); // Lấy riêng phần số (vd: 286095)
+
+        // Gọi SePay API lấy danh sách giao dịch gần nhất
+        const sepayRes = await fetch(`https://my.sepay.vn/userapi/transactions/list?limit=50`, {
             headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
         });
         const sepayData = await sepayRes.json();
 
-        if (sepayData.status === 200 && sepayData.transactions && sepayData.transactions.length > 0) {
-            // Kiểm tra xem có giao dịch nào khớp mã và đủ số tiền không
-            const validTx = sepayData.transactions.find(tx => Number(tx.amount_in) >= Number(totalAmount));
+        if (sepayData.status === 200 && Array.isArray(sepayData.transactions) && sepayData.transactions.length > 0) {
+            // Kiểm tra giao dịch thỏa mãn:
+            // 1. Số tiền vào (amount_in) >= số tiền cần thanh toán
+            // 2. Nội dung chuyển khoản (transaction_content) phải chứa mã vé
+            // 3. Thời gian giao dịch không được trước khi tạo vé
+            // 4. Giao dịch chưa được sử dụng cho vé khác
+            const validTx = sepayData.transactions.find(tx => {
+                const amountIn = Number(tx.amount_in || 0);
+                if (amountIn < totalAmount) return false;
+
+                const normContent = (tx.transaction_content || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                const hasCode = normContent.includes(normCode) || (numCode.length >= 5 && normContent.includes(numCode));
+                if (!hasCode) return false;
+
+                if (bookingTime > 0 && tx.transaction_date) {
+                    const txTime = new Date(tx.transaction_date.replace(' ', 'T')).getTime();
+                    if (!isNaN(txTime) && txTime < (bookingTime - 10 * 60 * 1000)) {
+                        return false;
+                    }
+                }
+
+                if (!useMSSQL && dbData && dbData.bookings) {
+                    const alreadyClaimed = dbData.bookings.some(b => b.sepayTransactionId && String(b.sepayTransactionId) === String(tx.id) && b.bookingCode !== code);
+                    if (alreadyClaimed) return false;
+                }
+
+                return true;
+            });
+
             if (validTx) {
                 // Cập nhật trạng thái vé thành "Đã thanh toán"
                 if (useMSSQL) {
                     await mssqlPool.request().input('code', sql.VarChar, code.toUpperCase()).query("UPDATE Booking SET PaymentStatus = N'Đã thanh toán' WHERE BookingCode = @code");
                 } else {
                     booking.paymentStatus = 'Đã thanh toán';
+                    booking.sepayTransactionId = validTx.id;
+                    booking.sepayReference = validTx.reference_number;
+                    booking.paidAt = new Date().toISOString();
                     saveDatabase();
                 }
-                return res.json({ success: true, message: 'Thanh toán thành công qua SePay' });
+                return res.json({ success: true, message: 'Thanh toán thành công qua SePay', transaction: validTx });
             }
         }
-        return res.json({ success: false, message: 'Đang chờ thanh toán' });
+        return res.json({ success: false, message: 'Đang chờ khách hàng quét mã QR chuyển khoản' });
     } catch (err) {
         console.error('Lỗi check SePay:', err);
         res.status(500).json({ success: false, message: 'Lỗi khi kiểm tra thanh toán' });
+    }
+});
+
+// 12b. Webhook SePay (Nhận thông báo tức thì khi có giao dịch chuyển khoản)
+app.post('/api/payment/sepay/webhook', async (req, res) => {
+    try {
+        const { content, transferAmount, id, referenceCode } = req.body || {};
+        if (!content || !transferAmount) {
+            return res.json({ success: false, message: 'Dữ liệu webhook không hợp lệ' });
+        }
+
+        const normContent = String(content).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const amount = Number(transferAmount);
+
+        let targetBooking = null;
+        if (useMSSQL) {
+            const result = await mssqlPool.request().query("SELECT BookingID, BookingCode, TotalAmount, PaymentStatus FROM Booking WHERE PaymentStatus = N'Chờ thanh toán'");
+            targetBooking = result.recordset.find(b => {
+                const bCode = b.BookingCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                return normContent.includes(bCode) && amount >= Number(b.TotalAmount);
+            });
+            if (targetBooking) {
+                await mssqlPool.request().input('code', sql.VarChar, targetBooking.BookingCode).query("UPDATE Booking SET PaymentStatus = N'Đã thanh toán' WHERE BookingCode = @code");
+                return res.json({ success: true, message: 'Webhook đã cập nhật vé thành công' });
+            }
+        } else {
+            targetBooking = dbData.bookings.find(b => {
+                if (b.paymentStatus !== 'Chờ thanh toán') return false;
+                const bCode = b.bookingCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                return normContent.includes(bCode) && amount >= Number(b.totalAmount);
+            });
+            if (targetBooking) {
+                targetBooking.paymentStatus = 'Đã thanh toán';
+                targetBooking.sepayTransactionId = id;
+                targetBooking.sepayReference = referenceCode;
+                targetBooking.paidAt = new Date().toISOString();
+                saveDatabase();
+                return res.json({ success: true, message: 'Webhook đã cập nhật vé thành công' });
+            }
+        }
+
+        res.json({ success: false, message: 'Không tìm thấy vé khớp mã hoặc chưa đủ số tiền' });
+    } catch (err) {
+        console.error('Lỗi SePay Webhook:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server khi xử lý webhook' });
     }
 });
 

@@ -35775,7 +35775,9 @@
       "busType": "Giường nằm 40 chỗ",
       "totalSeats": 40,
       "price": 290000,
-      "bookedSeats": []
+      "bookedSeats": [
+        "A01"
+      ]
     },
     {
       "tripId": "YOLO-0930-12510",
@@ -39246,7 +39248,7 @@
       "arrivalTime": "2026-10-03T17:30:00.000Z",
       "busType": "Giường nằm 40 chỗ",
       "totalSeats": 40,
-      "price": 165000,
+      "price": "1000",
       "bookedSeats": []
     },
     {
@@ -39666,8 +39668,12 @@
       "arrivalTime": "2026-10-03T03:30:00.000Z",
       "busType": "Limousine VIP 34 phòng",
       "totalSeats": 34,
-      "price": 160000,
-      "bookedSeats": []
+      "price": "1000",
+      "bookedSeats": [
+        "A03",
+        "A02",
+        "A01"
+      ]
     },
     {
       "tripId": "YOLO-1003-12788",
@@ -40021,6 +40027,131 @@
     }
   ],
   "bookings": [
+    {
+      "bookingCode": "YOLO-868841",
+      "tripId": "YOLO-1003-12787",
+      "departurePoint": "Vũng Tàu",
+      "destinationPoint": "Sài Gòn",
+      "departureStation": "Bến xe Vũng Tàu",
+      "destinationStation": "1 Võ Văn Ngân, Thủ Đức",
+      "departureTime": "2026-10-03T01:00:00.000Z",
+      "busType": "Limousine VIP 34 phòng",
+      "customerName": "Admin YOLO",
+      "customerPhone": "0963076842",
+      "customerEmail": "hien05082006@gmail.com",
+      "seats": [
+        "A01"
+      ],
+      "seatCount": 1,
+      "unitPrice": "1000",
+      "totalAmount": 1000,
+      "pickupPoint": "Bến xe Vũng Tàu",
+      "dropoffPoint": "Trụ sở chính: 1 Võ Văn Ngân, TP. Thủ Đức",
+      "paymentMethod": "VNPAY-QR",
+      "paymentStatus": "Chờ thanh toán",
+      "createdAt": "2026-09-29T20:04:06.825Z",
+      "qrUrl": "https://qr.sepay.vn/img?acc=94713092006&bank=TPB&amount=1000&des=YOLO-868841"
+    },
+    {
+      "bookingCode": "YOLO-286095",
+      "tripId": "YOLO-1003-12787",
+      "departurePoint": "Vũng Tàu",
+      "destinationPoint": "Sài Gòn",
+      "departureStation": "Bến xe Vũng Tàu",
+      "destinationStation": "1 Võ Văn Ngân, Thủ Đức",
+      "departureTime": "2026-10-03T01:00:00.000Z",
+      "busType": "Limousine VIP 34 phòng",
+      "customerName": "Admin YOLO",
+      "customerPhone": "0963076842",
+      "customerEmail": "hien05082006@gmail.com",
+      "seats": [
+        "A02"
+      ],
+      "seatCount": 1,
+      "unitPrice": "1000",
+      "totalAmount": 1000,
+      "pickupPoint": "Bến xe Vũng Tàu",
+      "dropoffPoint": "Trụ sở chính: 1 Võ Văn Ngân, TP. Thủ Đức",
+      "paymentMethod": "VNPAY-QR",
+      "paymentStatus": "Chờ thanh toán",
+      "createdAt": "2026-09-29T19:54:59.214Z",
+      "qrUrl": "https://qr.sepay.vn/img?acc=94713092006&bank=TPB&amount=1000&des=YOLO-286095"
+    },
+    {
+      "bookingCode": "YOLO-334189",
+      "tripId": "YOLO-0930-12509",
+      "departurePoint": "Sài Gòn",
+      "destinationPoint": "Đà Lạt",
+      "departureStation": "1 Võ Văn Ngân, Thủ Đức",
+      "destinationStation": "Bến xe Liên tỉnh Đà Lạt",
+      "departureTime": "2026-09-29T23:00:00.000Z",
+      "busType": "Giường nằm 40 chỗ",
+      "customerName": "Nguyễn Văn Test",
+      "customerPhone": "0987654321",
+      "customerEmail": "test@example.com",
+      "seats": [
+        "A01"
+      ],
+      "seatCount": 1,
+      "unitPrice": 290000,
+      "totalAmount": 290000,
+      "pickupPoint": "Trụ sở chính: 1 Võ Văn Ngân, TP. Thủ Đức",
+      "dropoffPoint": "Bến xe Liên tỉnh Đà Lạt",
+      "paymentMethod": "VNPAY-QR",
+      "paymentStatus": "Chờ thanh toán",
+      "createdAt": "2026-09-29T19:50:31.203Z",
+      "qrUrl": "https://qr.sepay.vn/img?acc=94713092006&bank=TPB&amount=290000&des=YOLO-334189"
+    },
+    {
+      "bookingCode": "YOLO-929383",
+      "tripId": "YOLO-1003-12787",
+      "departurePoint": "Vũng Tàu",
+      "destinationPoint": "Sài Gòn",
+      "departureStation": "Bến xe Vũng Tàu",
+      "destinationStation": "1 Võ Văn Ngân, Thủ Đức",
+      "departureTime": "2026-10-03T01:00:00.000Z",
+      "busType": "Limousine VIP 34 phòng",
+      "customerName": "Admin YOLO",
+      "customerPhone": "0963076842",
+      "customerEmail": "hien05082006@gmail.com",
+      "seats": [
+        "A03"
+      ],
+      "seatCount": 1,
+      "unitPrice": "1000",
+      "totalAmount": 1000,
+      "pickupPoint": "Bến xe Vũng Tàu",
+      "dropoffPoint": "Trụ sở chính: 1 Võ Văn Ngân, TP. Thủ Đức",
+      "paymentMethod": "VNPAY-QR",
+      "paymentStatus": "Đã thanh toán",
+      "createdAt": "2026-09-29T19:43:21.354Z",
+      "qrUrl": "https://qr.sepay.vn/img?acc=94713092006&bank=TPB&amount=1000&des=YOLO-929383"
+    },
+    {
+      "bookingCode": "YOLO-211950",
+      "tripId": "YOLO-0930-12579",
+      "departurePoint": "Biên Hòa",
+      "destinationPoint": "Đà Lạt",
+      "departureStation": "Bến xe Biên Hòa",
+      "destinationStation": "Bến xe Liên tỉnh Đà Lạt",
+      "departureTime": "2026-09-29T23:00:00.000Z",
+      "busType": "Giường nằm 40 chỗ",
+      "customerName": "Admin YOLO",
+      "customerPhone": "0963076842",
+      "customerEmail": "hien05082006@gmail.com",
+      "seats": [
+        "A03"
+      ],
+      "seatCount": 1,
+      "unitPrice": 290000,
+      "totalAmount": 290000,
+      "pickupPoint": "Bến xe Biên Hòa",
+      "dropoffPoint": "Bến xe Liên tỉnh Đà Lạt",
+      "paymentMethod": "VNPAY-QR",
+      "paymentStatus": "Đã hủy",
+      "createdAt": "2026-09-29T19:37:36.828Z",
+      "qrUrl": "https://qr.sepay.vn/img?acc=94713092006&bank=TPB&amount=290000&des=YOLO-211950"
+    },
     {
       "bookingCode": "YOLO-100000",
       "customerName": "Nguyễn Văn An",

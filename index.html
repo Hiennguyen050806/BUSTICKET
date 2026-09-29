@@ -706,10 +706,11 @@
                 <h2 class="modal-title">Đăng Nhập YOLO</h2>
 
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
-                    <button type="button" id="tab-customer" onclick="switchLoginRole('customer')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--yolo-blue); background: var(--yolo-blue); color: white; cursor: pointer; font-weight: 600;">Khách hàng</button>
-                    <button type="button" id="tab-admin" onclick="switchLoginRole('admin')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">Quản trị viên</button>
+                    <button type="button" id="tab-login-customer" onclick="switchLoginRole('customer')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--yolo-blue); background: var(--yolo-blue); color: white; cursor: pointer; font-weight: 600;">Khách hàng</button>
+                    <button type="button" id="tab-login-admin" onclick="switchLoginRole('admin')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">Quản trị viên</button>
                 </div>
                 <form id="login-form">
+                    <input type="hidden" id="login-role" value="customer">
                     <div class="input-group">
                         <label>Số điện thoại</label>
                         <input type="tel" id="login-phone" placeholder="Nhập số điện thoại" required>
