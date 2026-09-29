@@ -435,9 +435,10 @@ app.get('/api/trips', async (req, res) => {
         if (departure) trips = trips.filter(t => t.departurePoint.toLowerCase() === departure.toLowerCase());
         if (destination) trips = trips.filter(t => t.destinationPoint.toLowerCase() === destination.toLowerCase());
         if (date) {
+            const [y, m, d] = date.split('-');
             trips = trips.filter(t => {
-                const tripDate = t.departureDate || t.departureTime.split('T')[0];
-                return tripDate === date;
+                const tripDate = new Date(t.departureTime);
+                return tripDate.getFullYear() == y && (tripDate.getMonth()+1) == m && tripDate.getDate() == d;
             });
         }
         if (busType && busType !== 'all') {
@@ -656,7 +657,7 @@ app.post('/api/bookings', async (req, res) => {
                 .input('payMethod', sql.NVarChar, paymentMethod || 'VNPAY-QR')
                 .query(`INSERT INTO Booking (BookingCode, CustomerName, CustomerPhone, CustomerEmail, TripID, PickupPoint, DropoffPoint, TotalAmount, PaymentMethod, PaymentStatus)
                         OUTPUT INSERTED.BookingID
-                        VALUES (@code, @name, @phone, @email, @tripId, @pickup, @dropoff, @total, @payMethod, N'Đã thanh toán')`);
+                        VALUES (@code, @name, @phone, @email, @tripId, @pickup, @dropoff, @total, @payMethod, N'Chờ thanh toán')`);
             const bookingId = insertResult.recordset[0].BookingID;
 
             // Tạo BookingDetail cho từng ghế
@@ -670,9 +671,13 @@ app.post('/api/bookings', async (req, res) => {
                     .query('INSERT INTO BookingDetail (BookingID, SeatNumber, Price, Deck) VALUES (@bid, @seat, @price, @deck)');
             }
 
+            const bankAcc = process.env.BANK_ACCOUNT_NO || '';
+            const bankName = process.env.BANK_NAME || '';
+            const qrUrl = bankAcc ? `https://qr.sepay.vn/img?acc=${bankAcc}&bank=${bankName}&amount=${totalAmount}&des=${bookingCode}` : '';
+
             return res.json({
-                success: true, message: 'Đặt vé YOLO thành công!',
-                booking: { bookingCode, tripId, departurePoint: trip.DeparturePoint, destinationPoint: trip.DestinationPoint, departureStation: trip.DepartureStation, destinationStation: trip.DestinationStation, departureTime: trip.DepartureTime, busType: trip.BusType, customerName, customerPhone, customerEmail: customerEmail || '', seats, seatCount: seats.length, unitPrice: Number(trip.Price), totalAmount, pickupPoint: pickupPoint || trip.DepartureStation, dropoffPoint: dropoffPoint || trip.DestinationStation, paymentMethod: paymentMethod || 'VNPAY-QR', paymentStatus: 'Đã thanh toán', createdAt: new Date().toISOString() }
+                success: true, message: 'Đặt chỗ thành công! Vui lòng thanh toán.',
+                booking: { bookingCode, tripId, departurePoint: trip.DeparturePoint, destinationPoint: trip.DestinationPoint, departureStation: trip.DepartureStation, destinationStation: trip.DestinationStation, departureTime: trip.DepartureTime, busType: trip.BusType, customerName, customerPhone, customerEmail: customerEmail || '', seats, seatCount: seats.length, unitPrice: Number(trip.Price), totalAmount, pickupPoint: pickupPoint || trip.DepartureStation, dropoffPoint: dropoffPoint || trip.DestinationStation, paymentMethod: paymentMethod || 'VNPAY-QR', paymentStatus: 'Chờ thanh toán', createdAt: new Date().toISOString(), qrUrl }
             });
         }
 
@@ -692,6 +697,10 @@ app.post('/api/bookings', async (req, res) => {
         const bookingCode = `YOLO-${randomSuffix}`;
         const totalAmount = seats.length * trip.price;
 
+        const bankAcc = process.env.BANK_ACCOUNT_NO || '';
+        const bankName = process.env.BANK_NAME || '';
+        const qrUrl = bankAcc ? `https://qr.sepay.vn/img?acc=${bankAcc}&bank=${bankName}&amount=${totalAmount}&des=${bookingCode}` : '';
+
         const newBooking = {
             bookingCode, tripId: trip.tripId,
             departurePoint: trip.departurePoint, destinationPoint: trip.destinationPoint,
@@ -701,8 +710,8 @@ app.post('/api/bookings', async (req, res) => {
             seats, seatCount: seats.length, unitPrice: trip.price, totalAmount,
             pickupPoint: pickupPoint || trip.departureStation,
             dropoffPoint: dropoffPoint || trip.destinationStation,
-            paymentMethod: paymentMethod || 'VNPAY-QR', paymentStatus: 'Đã thanh toán',
-            createdAt: new Date().toISOString()
+            paymentMethod: paymentMethod || 'VNPAY-QR', paymentStatus: 'Chờ thanh toán',
+            createdAt: new Date().toISOString(), qrUrl
         };
         dbData.bookings.unshift(newBooking);
         saveDatabase();
@@ -847,6 +856,58 @@ app.get('/api/schedules', (req, res) => {
     res.json(schedules);
 });
 
+// 12. API Kiểm tra thanh toán SePay
+app.get('/api/payment/sepay/check/:code', async (req, res) => {
+    const { code } = req.params;
+    const apiKey = process.env.SEPAY_API_TOKEN;
+    if (!apiKey) return res.json({ success: false, message: 'Chưa cấu hình SePay API Key' });
+
+    try {
+        // Lấy thông tin vé để biết số tiền
+        let booking = null;
+        if (useMSSQL) {
+            const check = await mssqlPool.request().input('code', sql.VarChar, code.toUpperCase()).query('SELECT BookingID, TotalAmount, PaymentStatus FROM Booking WHERE BookingCode = @code');
+            if (check.recordset.length) booking = check.recordset[0];
+        } else {
+            booking = dbData.bookings.find(b => b.bookingCode.toUpperCase() === code.toUpperCase());
+        }
+
+        if (!booking) return res.status(404).json({ success: false, message: 'Không tìm thấy vé' });
+        
+        // Nếu đã thanh toán rồi thì trả về thành công luôn
+        if ((booking.PaymentStatus || booking.paymentStatus) === 'Đã thanh toán') {
+            return res.json({ success: true, message: 'Đã thanh toán thành công' });
+        }
+
+        const totalAmount = booking.TotalAmount || booking.totalAmount;
+
+        // Gọi SePay API kiểm tra giao dịch theo nội dung chuyển khoản là mã vé
+        const sepayRes = await fetch(`https://my.sepay.vn/userapi/transactions/list?memo=${code.toUpperCase()}`, {
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+        });
+        const sepayData = await sepayRes.json();
+
+        if (sepayData.status === 200 && sepayData.transactions && sepayData.transactions.length > 0) {
+            // Kiểm tra xem có giao dịch nào khớp mã và đủ số tiền không
+            const validTx = sepayData.transactions.find(tx => Number(tx.amount_in) >= Number(totalAmount));
+            if (validTx) {
+                // Cập nhật trạng thái vé thành "Đã thanh toán"
+                if (useMSSQL) {
+                    await mssqlPool.request().input('code', sql.VarChar, code.toUpperCase()).query("UPDATE Booking SET PaymentStatus = N'Đã thanh toán' WHERE BookingCode = @code");
+                } else {
+                    booking.paymentStatus = 'Đã thanh toán';
+                    saveDatabase();
+                }
+                return res.json({ success: true, message: 'Thanh toán thành công qua SePay' });
+            }
+        }
+        return res.json({ success: false, message: 'Đang chờ thanh toán' });
+    } catch (err) {
+        console.error('Lỗi check SePay:', err);
+        res.status(500).json({ success: false, message: 'Lỗi khi kiểm tra thanh toán' });
+    }
+});
+
 // =======================================================================
 // ADMIN API ENDPOINTS (Dashboard quản trị)
 // =======================================================================
@@ -957,7 +1018,13 @@ app.get('/api/admin/trips', async (req, res) => {
         let trips = [...dbData.trips];
         if (departure) trips = trips.filter(t => t.departurePoint === departure);
         if (destination) trips = trips.filter(t => t.destinationPoint === destination);
-        if (date) trips = trips.filter(t => (t.departureDate || t.departureTime.split('T')[0]) === date);
+        if (date) {
+            const [y, m, d] = date.split('-');
+            trips = trips.filter(t => {
+                const tripDate = new Date(t.departureTime);
+                return tripDate.getFullYear() == y && (tripDate.getMonth()+1) == m && tripDate.getDate() == d;
+            });
+        }
         trips.sort((a, b) => new Date(b.departureTime) - new Date(a.departureTime));
         const total = trips.length;
         trips = trips.slice(offset, offset + parseInt(limit));
@@ -1225,6 +1292,136 @@ app.delete('/api/admin/buses/:id', async (req, res) => {
     } catch (err) {
         console.error('Lỗi DELETE /api/admin/buses/:id:', err);
         res.status(500).json({ success: false, message: 'Lỗi hệ thống!' });
+    }
+});
+
+// Admin: Cập nhật Khách Hàng
+
+// Admin: Thêm khách hàng mới
+app.post('/api/admin/customers', async (req, res) => {
+    const { fullName, email, phone } = req.body;
+    if (!fullName || !phone) return res.status(400).json({ success: false, message: 'Thiếu thông tin bắt buộc!' });
+    try {
+        if (useMSSQL) {
+            await mssqlPool.request()
+                .input('name', sql.NVarChar, fullName)
+                .input('email', sql.VarChar, email || null)
+                .input('phone', sql.VarChar, phone)
+                .query(`INSERT INTO Customer (FullName, Email, PhoneNumber, Password, IsAdmin) VALUES (@name, @email, @phone, '123456', 0)`);
+            return res.json({ success: true, message: 'Thêm khách hàng thành công!' });
+        }
+        
+        const newId = dbData.customers.length > 0 ? Math.max(...dbData.customers.map(c => c.customerId || c.id || 0)) + 1 : 1;
+        dbData.customers.push({ customerId: newId, fullName, email, phone, isAdmin: false });
+        saveDatabase();
+        res.json({ success: true, message: 'Thêm khách hàng thành công!' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// Admin: Xóa khách hàng
+app.delete('/api/admin/customers/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        if (useMSSQL) {
+            await mssqlPool.request()
+                .input('id', sql.Int, id)
+                .query('DELETE FROM Customer WHERE CustomerID = @id');
+            return res.json({ success: true, message: 'Xóa khách hàng thành công!' });
+        }
+        
+        dbData.customers = dbData.customers.filter(c => (c.customerId || c.id) != id);
+        saveDatabase();
+        res.json({ success: true, message: 'Xóa khách hàng thành công!' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống hoặc khách hàng đang có vé!' });
+    }
+});
+
+app.put('/api/admin/customers/:id', async (req, res) => {
+    const { id } = req.params;
+    const { fullName, email, phone } = req.body;
+    try {
+        if (useMSSQL) {
+            await mssqlPool.request()
+                .input('id', sql.Int, id)
+                .input('name', sql.NVarChar, fullName)
+                .input('email', sql.VarChar, email || null)
+                .input('phone', sql.VarChar, phone)
+                .query(`UPDATE Customer SET FullName = @name, Email = @email, PhoneNumber = @phone WHERE CustomerID = @id`);
+            return res.json({ success: true, message: 'Cập nhật thành công!' });
+        }
+        
+        const c = dbData.customers.find(x => (x.customerId || x.id) == id);
+        if (c) {
+            if (fullName) c.fullName = fullName;
+            if (email !== undefined) c.email = email;
+            if (phone) c.phone = phone;
+            saveDatabase();
+            return res.json({ success: true, message: 'Cập nhật thành công!' });
+        }
+        res.status(404).json({ success: false, message: 'Không tìm thấy khách hàng!' });
+    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Admin: Cập nhật Trạng Thái Vé
+app.put('/api/admin/bookings/:code', async (req, res) => {
+    const { code } = req.params;
+    const { paymentStatus } = req.body;
+    try {
+        if (useMSSQL) {
+            await mssqlPool.request()
+                .input('code', sql.VarChar, code)
+                .input('status', sql.NVarChar, paymentStatus)
+                .query(`UPDATE Booking SET PaymentStatus = @status WHERE BookingCode = @code`);
+            return res.json({ success: true, message: 'Cập nhật thành công!' });
+        }
+        const b = dbData.bookings.find(x => x.bookingCode === code);
+        if (b) {
+            b.paymentStatus = paymentStatus;
+            saveDatabase();
+            return res.json({ success: true, message: 'Cập nhật thành công!' });
+        }
+        res.status(404).json({ success: false, message: 'Không tìm thấy vé!' });
+    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Admin: Export Báo Cáo
+app.get('/api/admin/export', async (req, res) => {
+    try {
+        let bookings = [];
+        if (useMSSQL) {
+            const result = await mssqlPool.request().query(`
+                SELECT bk.BookingCode, bk.CustomerName, bk.CustomerPhone, bk.TotalAmount, bk.PaymentStatus, bk.CreatedAt,
+                       t.DeparturePoint, t.DestinationPoint
+                FROM Booking bk JOIN Trip t ON bk.TripID = t.TripID
+                ORDER BY bk.CreatedAt DESC
+            `);
+            bookings = result.recordset;
+        } else {
+            bookings = dbData.bookings;
+        }
+
+        let csv = 'Mã Vé,Tên Khách Hàng,SĐT,Tuyến Đường,Tổng Tiền,Trạng Thái,Ngày Tạo\n';
+        bookings.forEach(b => {
+            const route = b.DeparturePoint ? `${b.DeparturePoint}-${b.DestinationPoint}` : 'N/A';
+            const amount = b.TotalAmount || b.totalAmount || 0;
+            const status = b.PaymentStatus || b.paymentStatus || '';
+            const created = b.CreatedAt || b.createdAt || '';
+            const name = (b.CustomerName || b.customerName || '').replace(/,/g, '');
+            const phone = b.CustomerPhone || b.customerPhone || '';
+            csv += `${b.BookingCode || b.bookingCode},${name},${phone},${route},${amount},${status},${created}\n`;
+        });
+
+        res.header('Content-Type', 'text/csv; charset=utf-8');
+        res.attachment('baocao_doanhthu.csv');
+        // Prepend BOM for Excel UTF-8 display
+        res.send('\\uFEFF' + csv);
+    } catch (e) {
+        res.status(500).send('Lỗi xuất báo cáo');
     }
 });
 

@@ -1,3 +1,27 @@
+
+// Định dạng ngày giờ chuẩn
+const formatDateVN = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear()).slice(-2); // yy format as requested
+    return `${day}/${month}/${year}`;
+};
+
+const formatTimeVN = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${mins}`;
+};
+
+const formatDateTimeVN = (isoStr) => {
+    if (!isoStr) return '';
+    return `${formatTimeVN(isoStr)} ${formatDateVN(isoStr)}`;
+};
+
 // =======================================================================
 // HỆ THỐNG ĐẶT VÉ XE YOLO BUS LINES
 // MAIN FRONTEND JAVASCRIPT
@@ -123,6 +147,11 @@ function updateAuthUI() {
                     <span style="font-size: 13.5px; font-weight: 700; color: var(--yolo-blue);">${name}</span>
                     <span style="font-size: 11px; color: var(--text-muted);">${appState.currentUser.PhoneNumber}</span>
                 </div>
+                ${appState.currentUser.IsAdmin ? `
+                <a href="admin.html" class="btn-logout-small" style="text-decoration: none; background: var(--yolo-cyan); color: white; border-color: var(--yolo-cyan);" title="Trang quản trị">
+                    <i class="fa-solid fa-user-shield"></i> Admin
+                </a>
+                ` : ''}
                 <button type="button" class="btn-logout-small" onclick="handleLogout()" title="Đăng xuất">
                     <i class="fa-solid fa-right-from-bracket"></i> Thoát
                 </button>
@@ -455,7 +484,7 @@ async function selectTrip(tripId) {
                 Sơ đồ xe: ${data.busType} - Tuyến ${data.departurePoint} ➔ ${data.destinationPoint}
             </h3>
             <p style="color: var(--text-muted); font-size: 13.5px; margin-top: 4px;">
-                Khởi hành lúc: <strong>${new Date(data.departureTime).toLocaleString('vi-VN')}</strong> | 
+                Khởi hành lúc: <strong>${formatDateTimeVN(data.departureTime)}</strong> | 
                 Giá vé: <strong>${Number(data.price).toLocaleString('vi-VN')} đ/vé</strong>
             </p>
         `;
@@ -653,32 +682,18 @@ function prepareStep3() {
     const totalAmount = appState.selectedSeats.length * trip.price;
 
     document.getElementById('sum-route').innerText = `${trip.departurePoint} ➔ ${trip.destinationPoint}`;
-    document.getElementById('sum-time').innerText = new Date(trip.departureTime).toLocaleString('vi-VN');
+    document.getElementById('sum-time').innerText = formatDateTimeVN(trip.departureTime);
     document.getElementById('sum-bus-type').innerText = trip.busType;
     document.getElementById('sum-seats').innerText = appState.selectedSeats.join(', ');
     document.getElementById('sum-pickup').innerText = document.getElementById('select-pickup').value;
     document.getElementById('sum-dropoff').innerText = document.getElementById('select-dropoff').value;
     document.getElementById('sum-total').innerText = `${Number(totalAmount).toLocaleString('vi-VN')} đ`;
-
-    // Cập nhật QR code giả lập
-    const qrData = encodeURIComponent(`YOLO-PAY|TRIP:${trip.tripId}|AMOUNT:${totalAmount}|SEATS:${appState.selectedSeats.join(',')}`);
-    const qrImg = document.getElementById('qr-code-img');
-    if (qrImg) {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${qrData}`;
-    }
-
-    startCountdown();
 }
 
 function selectPayMethod(method) {
     appState.selectedPayMethod = method;
     document.querySelectorAll('.pay-method-card').forEach(el => el.classList.remove('active'));
     event.currentTarget.classList.add('active');
-
-    const qrBox = document.getElementById('qr-section');
-    if (qrBox) {
-        qrBox.style.display = (method === 'VNPAY-QR') ? 'flex' : 'none';
-    }
 }
 
 function startCountdown() {
@@ -706,7 +721,8 @@ function startCountdown() {
 // =======================================================================
 // 7. XÁC NHẬN ĐẶT VÉ & XUẤT VÉ ĐIỆN TỬ
 // =======================================================================
-async function confirmBooking() {
+// Hàm tạo phiên thanh toán - hiện QR ngay trong trang
+async function startPaymentSession() {
     const trip = appState.currentTrip;
     const name = document.getElementById('cust-name').value.trim();
     const phone = document.getElementById('cust-phone').value.trim();
@@ -726,6 +742,12 @@ async function confirmBooking() {
     };
 
     try {
+        // Disable nút "Thanh toán ngay" để tránh bấm 2 lần
+        const btnStart = document.getElementById('btn-start-payment');
+        btnStart.disabled = true;
+        btnStart.style.opacity = '0.5';
+        btnStart.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tạo phiên...';
+
         const res = await fetch(`${API_BASE}/bookings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -736,15 +758,73 @@ async function confirmBooking() {
 
         if (res.ok && data.success) {
             if (appState.countdownTimer) clearInterval(appState.countdownTimer);
-            showToast('Chúc mừng bạn đã đặt vé thành công!', 'success');
-            renderETicket(data.booking);
-            goToStep(4);
+            
+            // Lưu booking hiện tại
+            currentSepayBooking = data.booking;
+
+            // Hiện khu vực QR code ngay trong trang
+            const qrArea = document.getElementById('payment-qr-area');
+            const qrSrc = data.booking.qrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent('YOLO-PAYMENT-' + data.booking.bookingCode)}`;
+            document.getElementById('payment-qr-img').src = qrSrc;
+            document.getElementById('payment-qr-amount').innerText = Number(data.booking.totalAmount).toLocaleString('vi-VN') + ' đ';
+            document.getElementById('payment-qr-memo').innerText = data.booking.bookingCode;
+            qrArea.style.display = 'block';
+
+            // Ẩn nút "Thanh toán ngay" 
+            btnStart.style.display = 'none';
+
+            // Mở khóa nút "Xác nhận & Hoàn tất"
+            const btnConfirm = document.getElementById('btn-confirm-payment');
+            btnConfirm.disabled = false;
+            btnConfirm.style.opacity = '1';
+            btnConfirm.style.cursor = 'pointer';
+            document.getElementById('confirm-hint').innerText = 'Sau khi chuyển khoản xong, bấm nút này để xác nhận';
+
+            // Bắt đầu polling tự động mỗi 5 giây
+            if (sepayInterval) clearInterval(sepayInterval);
+            sepayInterval = setInterval(checkSePayStatus, 5000);
+
+            showToast('Đã tạo phiên thanh toán! Quét mã QR để chuyển khoản.', 'success');
         } else {
             showToast(data.message || 'Đặt vé thất bại! Ghế có thể vừa bị giữ.', 'error');
+            btnStart.disabled = false;
+            btnStart.style.opacity = '1';
+            btnStart.innerHTML = '<i class="fa-solid fa-qrcode"></i> Thanh toán ngay';
         }
     } catch (err) {
         console.error('Lỗi đặt vé:', err);
-        showToast('Không thể kết nối đến máy chủ để xác nhận vé.', 'error');
+        showToast('Không thể kết nối đến máy chủ.', 'error');
+        const btnStart = document.getElementById('btn-start-payment');
+        btnStart.disabled = false;
+        btnStart.style.opacity = '1';
+        btnStart.innerHTML = '<i class="fa-solid fa-qrcode"></i> Thanh toán ngay';
+    }
+}
+
+// Hàm kiểm tra kết quả thanh toán khi bấm "Xác nhận & Hoàn tất"
+async function confirmPaymentResult() {
+    if (!currentSepayBooking) {
+        showToast('Vui lòng bấm "Thanh toán ngay" trước!', 'error');
+        return;
+    }
+    try {
+        showToast('Đang kiểm tra giao dịch với ngân hàng...', 'info');
+        const res = await fetch(`${API_BASE}/payment/sepay/check/${currentSepayBooking.bookingCode}`);
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            // Thanh toán thành công!
+            if (sepayInterval) clearInterval(sepayInterval);
+            showToast('Thanh toán thành công! Xuất vé điện tử.', 'success');
+            currentSepayBooking.paymentStatus = 'Đã thanh toán';
+            renderETicket(currentSepayBooking);
+            goToStep(4);
+        } else {
+            showToast('Chưa nhận được thanh toán! Vui lòng quét mã QR và chờ thêm giây lát.', 'error');
+        }
+    } catch (err) {
+        console.error('Lỗi check thanh toán:', err);
+        showToast('Lỗi kết nối, vui lòng thử lại.', 'error');
     }
 }
 
@@ -753,7 +833,7 @@ function renderETicket(b) {
     document.getElementById('ticket-card-route').innerText = `${b.departurePoint} ➔ ${b.destinationPoint}`;
     document.getElementById('ticket-card-name').innerText = b.customerName;
     document.getElementById('ticket-card-phone').innerText = b.customerPhone;
-    document.getElementById('ticket-card-time').innerText = new Date(b.departureTime).toLocaleString('vi-VN');
+    document.getElementById('ticket-card-time').innerText = formatDateTimeVN(b.departureTime);
     document.getElementById('ticket-card-seats').innerText = b.seats.join(', ');
     document.getElementById('ticket-card-pickup').innerText = b.pickupPoint;
     document.getElementById('ticket-card-dropoff').innerText = b.dropoffPoint;
@@ -816,7 +896,7 @@ async function handleLookupTicket(e) {
                         <div class="ticket-details-grid">
                             <div class="ticket-item"><div class="lbl">Hành khách</div><div class="val">${b.customerName}</div></div>
                             <div class="ticket-item"><div class="lbl">Số điện thoại</div><div class="val">${b.customerPhone}</div></div>
-                            <div class="ticket-item"><div class="lbl">Thời gian đi</div><div class="val">${new Date(b.departureTime).toLocaleString('vi-VN')}</div></div>
+                            <div class="ticket-item"><div class="lbl">Thời gian đi</div><div class="val">${formatDateTimeVN(b.departureTime)}</div></div>
                             <div class="ticket-item"><div class="lbl">Ghế đặt</div><div class="val" style="color:var(--yolo-blue);">${b.seats.join(', ')}</div></div>
                             <div class="ticket-item"><div class="lbl">Điểm đón</div><div class="val" style="font-size:12.5px;">${b.pickupPoint}</div></div>
                             <div class="ticket-item"><div class="lbl">Điểm trả</div><div class="val" style="font-size:12.5px;">${b.dropoffPoint}</div></div>
@@ -965,7 +1045,7 @@ async function fetchAndRenderUserBookings(phone) {
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 12px;">
                         <div>
                             <span style="font-size: 15px; font-weight: 800; color: var(--yolo-blue);">${b.bookingCode}</span>
-                            <span style="color: var(--text-muted); font-size: 12.5px; margin-left: 10px;">Đặt lúc: ${new Date(b.createdAt).toLocaleString('vi-VN')}</span>
+                            <span style="color: var(--text-muted); font-size: 12.5px; margin-left: 10px;">Đặt lúc: ${formatDateTimeVN(b.createdAt)}</span>
                         </div>
                         <span style="background: ${b.paymentStatus === 'Đã hủy' ? '#ef4444' : '#10b981'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;">
                             ${b.paymentStatus || 'Đã xác nhận'}
@@ -974,7 +1054,7 @@ async function fetchAndRenderUserBookings(phone) {
                     <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; align-items: center;">
                         <div>
                             <h4 style="font-size: 16px; color: var(--text-main);">${b.departurePoint} ➔ ${b.destinationPoint}</h4>
-                            <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Khởi hành: <strong>${new Date(b.departureTime).toLocaleString('vi-VN')}</strong></p>
+                            <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Khởi hành: <strong>${formatDateTimeVN(b.departureTime)}</strong></p>
                             <p style="font-size: 13px; color: var(--text-muted);">Điểm đón: ${b.pickupPoint}</p>
                         </div>
                         <div>
@@ -1057,11 +1137,25 @@ function setupModals() {
 
             const data = await res.json();
             if (res.ok && data.success) {
+                // Kiểm tra quyền nếu người dùng chọn tab Admin
+                const selectedRole = document.getElementById('login-role')?.value || 'customer';
+                if (selectedRole === 'admin' && !data.user.IsAdmin) {
+                    showToast('Tài khoản này không có quyền Quản trị viên (Admin)!', 'error');
+                    return;
+                }
+
                 appState.currentUser = data.user;
                 localStorage.setItem('yolo_user', JSON.stringify(data.user));
                 updateAuthUI();
                 closeAuthModal();
                 showToast(`Đăng nhập thành công! Chào mừng ${data.user.FullName}`, 'success');
+                
+                // Nếu là Admin, tự động mở trang quản trị luôn
+                if (selectedRole === 'admin') {
+                    setTimeout(() => {
+                        window.location.href = 'admin.html';
+                    }, 1000);
+                }
             } else {
                 showToast(data.message || 'Số điện thoại hoặc mật khẩu không chính xác!', 'error');
             }
@@ -1201,3 +1295,121 @@ function showToast(message, type = 'info') {
         setTimeout(() => toast.remove(), 400);
     }, 3500);
 }
+
+// Hàm chuyển đổi quyền đăng nhập
+function switchLoginRole(role) {
+    const btnCustomer = document.getElementById('tab-login-customer');
+    const btnAdmin = document.getElementById('tab-login-admin');
+    const roleInput = document.getElementById('login-role');
+    
+    if (roleInput) roleInput.value = role;
+
+    if (role === 'admin') {
+        // Active Admin
+        btnAdmin.style.background = 'var(--yolo-blue)';
+        btnAdmin.style.color = 'white';
+        btnAdmin.style.borderColor = 'var(--yolo-blue)';
+        // Deactive Customer
+        btnCustomer.style.background = 'transparent';
+        btnCustomer.style.color = 'var(--text-main)';
+        btnCustomer.style.borderColor = 'var(--border-color)';
+    } else {
+        // Active Customer
+        btnCustomer.style.background = 'var(--yolo-blue)';
+        btnCustomer.style.color = 'white';
+        btnCustomer.style.borderColor = 'var(--yolo-blue)';
+        // Deactive Admin
+        btnAdmin.style.background = 'transparent';
+        btnAdmin.style.color = 'var(--text-main)';
+        btnAdmin.style.borderColor = 'var(--border-color)';
+    }
+}
+
+// =======================================================================
+// 12. LOGIC THANH TOÁN SEPAY (POLLING)
+// =======================================================================
+let sepayInterval = null;
+let currentSepayBooking = null;
+
+function openSePayModal(booking) {
+    currentSepayBooking = booking;
+    const modal = document.getElementById('sepay-modal');
+    
+    // Nếu server trả về qrUrl thì dùng, nếu không thì tạo fallback
+    const qrSrc = booking.qrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('YOLO-PAYMENT-' + booking.bookingCode)}`;
+    document.getElementById('sepay-qr-img').src = qrSrc;
+    document.getElementById('sepay-amount').innerText = Number(booking.totalAmount).toLocaleString('vi-VN') + ' đ';
+    document.getElementById('sepay-memo').innerText = booking.bookingCode;
+    
+    modal.style.display = 'block';
+
+    // Bắt đầu polling mỗi 5 giây
+    if (sepayInterval) clearInterval(sepayInterval);
+    sepayInterval = setInterval(checkSePayStatus, 5000);
+}
+
+function cancelSePayPayment() {
+    if (sepayInterval) clearInterval(sepayInterval);
+    document.getElementById('sepay-modal').style.display = 'none';
+    showToast('Bạn đã chọn thanh toán sau. Ghế đã được giữ.', 'info');
+    renderETicket(currentSepayBooking);
+    goToStep(4);
+}
+
+async function manualCheckSePay() {
+    if (!currentSepayBooking) return;
+    try {
+        showToast('Đang kiểm tra giao dịch với ngân hàng...', 'info');
+        const res = await fetch(`${API_BASE}/payment/sepay/check/${currentSepayBooking.bookingCode}`);
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            // Thanh toán thành công!
+            clearInterval(sepayInterval);
+            document.getElementById('sepay-modal').style.display = 'none';
+            showToast('Đã nhận được thanh toán! Xuất vé thành công.', 'success');
+            
+            // Cập nhật lại trạng thái vé trên UI
+            currentSepayBooking.paymentStatus = 'Đã thanh toán';
+            renderETicket(currentSepayBooking);
+            goToStep(4);
+        } else {
+            showToast('Giao dịch chưa thành công, vui lòng chờ thêm giây lát!', 'error');
+        }
+    } catch (err) {
+        console.error('Lỗi khi check SePay:', err);
+    }
+}
+
+async function checkSePayStatus() {
+    if (!currentSepayBooking) return;
+    try {
+        const res = await fetch(`${API_BASE}/payment/sepay/check/${currentSepayBooking.bookingCode}`);
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            // Thanh toán thành công!
+            clearInterval(sepayInterval);
+            document.getElementById('sepay-modal').style.display = 'none';
+            showToast('Đã nhận được thanh toán! Xuất vé thành công.', 'success');
+            
+            // Cập nhật lại trạng thái vé trên UI
+            currentSepayBooking.paymentStatus = 'Đã thanh toán';
+            renderETicket(currentSepayBooking);
+            goToStep(4);
+        }
+    } catch (err) {
+        console.error('Lỗi khi polling SePay:', err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr("input[type='date']", {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d/m/y",
+            locale: "vn"
+        });
+    }
+});

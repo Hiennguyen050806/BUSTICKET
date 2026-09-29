@@ -6,6 +6,7 @@
     <title>YOLO Bus Lines - Đặt Vé Xe Khách Trực Tuyến</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
     <!-- =======================================================================
@@ -389,41 +390,30 @@
                                     <input type="radio" name="payMethod" value="VNPAY-QR" checked>
                                     <i class="fa-solid fa-qrcode" style="font-size: 24px; color: var(--yolo-blue);"></i>
                                     <div class="pay-method-info">
-                                        <h5>VNPAY-QR / MoMo / ZaloPay</h5>
-                                        <p>Quét mã QR thanh toán nhanh bằng ứng dụng ngân hàng hoặc ví điện tử</p>
-                                    </div>
-                                </label>
-
-                                <label class="pay-method-card" onclick="selectPayMethod('BANKING')">
-                                    <input type="radio" name="payMethod" value="BANKING">
-                                    <i class="fa-solid fa-building-columns" style="font-size: 24px; color: #16a34a;"></i>
-                                    <div class="pay-method-info">
-                                        <h5>Chuyển khoản Internet Banking</h5>
-                                        <p>Chuyển khoản trực tiếp tới số tài khoản công ty YOLO Bus Lines</p>
-                                    </div>
-                                </label>
-
-                                <label class="pay-method-card" onclick="selectPayMethod('CASH')">
-                                    <input type="radio" name="payMethod" value="CASH">
-                                    <i class="fa-solid fa-money-bill-wave" style="font-size: 24px; color: #ea580c;"></i>
-                                    <div class="pay-method-info">
-                                        <h5>Thanh toán tại quầy khi lên xe</h5>
-                                        <p>Giữ chỗ trong vòng 24h, thanh toán trực tiếp tại phòng vé trước giờ khởi hành</p>
+                                        <h5>Thanh Toán VietQR (Tự động)</h5>
+                                        <p>Mã QR ngân hàng thật, hệ thống tự động xác nhận giao dịch.</p>
                                     </div>
                                 </label>
                             </div>
 
-                            <!-- Khu vực QR code giả lập -->
-                            <div class="qr-payment-box" id="qr-section">
-                                <div style="font-size: 13.5px; font-weight: 700; color: var(--text-main);">
-                                    Quét mã QR dưới đây để hoàn tất thanh toán
+                            <!-- Nút bấm để bắt đầu phiên thanh toán -->
+                            <button type="button" id="btn-start-payment" class="btn-proceed" style="width: 100%; margin-top: 20px; padding: 13px; background: #f97316;" onclick="startPaymentSession()">
+                                <i class="fa-solid fa-qrcode"></i> Thanh toán ngay
+                            </button>
+
+                            <!-- Khu vực hiển thị mã QR ngân hàng thật (ẩn ban đầu) -->
+                            <div id="payment-qr-area" style="display: none; margin-top: 20px; text-align: center; padding: 20px; background: var(--bg-card); border: 1.5px solid var(--yolo-blue-border); border-radius: 12px;">
+                                <h4 style="color: var(--yolo-blue); margin-bottom: 10px;">
+                                    <i class="fa-solid fa-qrcode"></i> Quét mã QR để thanh toán
+                                </h4>
+                                <div style="padding: 10px; background: white; border-radius: 12px; display: inline-block; margin-bottom: 15px;">
+                                    <img id="payment-qr-img" src="" alt="VietQR" style="width: 220px; height: 220px; object-fit: contain;">
                                 </div>
-                                <div class="qr-image-wrapper">
-                                    <img id="qr-code-img" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=YOLO-PAYMENT" alt="QR Payment">
+                                <div style="background: var(--yolo-blue-light); padding: 12px; border-radius: 8px; margin-bottom: 10px;">
+                                    <div style="font-size: 14px; margin-bottom: 6px;">Số tiền: <strong id="payment-qr-amount" style="color: var(--yolo-blue); font-size: 18px;"></strong></div>
+                                    <div style="font-size: 14px;">Nội dung CK: <strong id="payment-qr-memo" style="color: red; font-size: 16px;"></strong></div>
                                 </div>
-                                <div class="countdown-timer">
-                                    Thời gian giữ chỗ còn: <strong id="countdown-text">05:00</strong>
-                                </div>
+                                <p style="font-size: 13px; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Đang tự động kiểm tra giao dịch...</p>
                             </div>
                         </div>
 
@@ -460,9 +450,11 @@
                                 <span class="total-amount" id="sum-total">0 đ</span>
                             </div>
 
-                            <button type="button" class="btn-proceed" style="width: 100%; margin-top: 20px; padding: 13px;" onclick="confirmBooking()">
-                                <i class="fa-solid fa-check"></i> Xác nhận & Hoàn tất
+                            <!-- Nút này chỉ bấm được SAU khi đã hiện QR -->
+                            <button type="button" id="btn-confirm-payment" class="btn-proceed" style="width: 100%; margin-top: 20px; padding: 13px; opacity: 0.5; cursor: not-allowed;" disabled onclick="confirmPaymentResult()">
+                                <i class="fa-solid fa-check"></i> Xác nhận &amp; Hoàn tất
                             </button>
+                            <p id="confirm-hint" style="text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 8px;">Vui lòng bấm "Thanh toán ngay" và quét mã QR trước</p>
                         </div>
                     </div>
 
@@ -712,6 +704,11 @@
             <!-- FORM ĐĂNG NHẬP -->
             <div id="login-section">
                 <h2 class="modal-title">Đăng Nhập YOLO</h2>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+                    <button type="button" id="tab-customer" onclick="switchLoginRole('customer')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--yolo-blue); background: var(--yolo-blue); color: white; cursor: pointer; font-weight: 600;">Khách hàng</button>
+                    <button type="button" id="tab-admin" onclick="switchLoginRole('admin')" style="flex: 1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-color); background: transparent; color: var(--text-main); cursor: pointer; font-weight: 600;">Quản trị viên</button>
+                </div>
                 <form id="login-form">
                     <div class="input-group">
                         <label>Số điện thoại</label>
@@ -777,6 +774,27 @@
         </div>
     </div>
 
+    <!-- =======================================================================
+         5. MODAL THANH TOÁN SEPAY
+         ======================================================================= -->
+    <div id="sepay-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px; text-align: center;">
+            <h2 class="modal-title" style="color: var(--yolo-blue);">
+                <i class="fa-solid fa-qrcode"></i> Thanh Toán Quét Mã QR
+            </h2>
+            <p style="margin-bottom: 15px; color: var(--text-sub);">Mở ứng dụng ngân hàng và quét mã VietQR bên dưới để thanh toán.</p>
+            <div style="padding: 10px; background: white; border-radius: 12px; display: inline-block; margin-bottom: 20px;">
+                <img id="sepay-qr-img" src="" alt="VietQR" style="width: 250px; height: 250px; object-fit: contain;">
+            </div>
+            <div style="background: var(--yolo-blue-light); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="font-size: 14px; margin-bottom: 8px;">Số tiền thanh toán: <strong id="sepay-amount" style="color: var(--yolo-blue); font-size: 18px;"></strong></div>
+                <div style="font-size: 14px;">Nội dung chuyển khoản: <strong id="sepay-memo" style="color: red; font-size: 16px;"></strong></div>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> Hệ thống đang tự động kiểm tra giao dịch...</p>
+            <button type="button" class="btn-submit" onclick="manualCheckSePay()" style="background: var(--yolo-blue); color: white; border: none;">Tôi đã thanh toán xong</button>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container"></div>
 
@@ -828,5 +846,7 @@
     </footer>
 
     <script src="main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/vn.js"></script>
 </body>
 </html>

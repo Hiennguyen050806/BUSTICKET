@@ -347,6 +347,7 @@
         }
 
     </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
 
@@ -434,11 +435,14 @@
                 <div class="charts-section">
                     <div class="section-header">
                         <div class="section-title">Biểu đồ doanh thu 30 ngày qua</div>
-                        <select class="input-field" style="width: 150px; padding: 6px 12px;" onchange="loadRevenueChart(this.value)">
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-primary" style="background-color: #10b981;" onclick="exportReport()"><i class="fa-solid fa-file-excel"></i> Xuất Báo Cáo CSV</button>
+                            <select class="input-field" style="width: 150px; padding: 6px 12px;" onchange="loadRevenueChart(this.value)">
                             <option value="7">7 ngày qua</option>
                             <option value="15">15 ngày qua</option>
                             <option value="30" selected>30 ngày qua</option>
                         </select>
+                        </div>
                     </div>
                     <div class="chart-container">
                         <canvas id="revenueChart"></canvas>
@@ -453,7 +457,7 @@
                     <div style="display: flex; gap: 10px;">
                         <input type="date" id="filter-trip-date" class="input-field" style="width: auto;">
                         <button class="btn btn-primary" onclick="loadTrips()">Lọc</button>
-                        <button class="btn btn-primary" onclick="alert('Tính năng thêm chuyến đang phát triển')"><i class="fa-solid fa-plus"></i> Thêm chuyến</button>
+                        <button class="btn btn-primary" onclick="openTripModal()"><i class="fa-solid fa-plus"></i> Thêm chuyến</button>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -512,6 +516,7 @@
             <div id="tab-customers" class="data-panel">
                 <div class="panel-controls">
                     <h2 class="section-title">Khách hàng</h2>
+                    <button class="btn btn-primary" onclick="openCustomerModal('', '', '', '')"><i class="fa-solid fa-plus"></i> Thêm khách hàng</button>
                 </div>
                 <div class="table-responsive">
                     <table class="admin-table">
@@ -523,6 +528,7 @@
                                 <th>Email</th>
                                 <th>Đã mua</th>
                                 <th>Tổng chi tiêu</th>
+                                <th>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="tb-customers">
@@ -537,7 +543,7 @@
             <div id="tab-buses" class="data-panel">
                 <div class="panel-controls">
                     <h2 class="section-title">Xe khách</h2>
-                    <button class="btn btn-primary" onclick="alert('Tính năng thêm xe đang phát triển')"><i class="fa-solid fa-plus"></i> Thêm xe</button>
+                    <button class="btn btn-primary" onclick="openBusModal()"><i class="fa-solid fa-plus"></i> Thêm xe</button>
                 </div>
                 <div class="table-responsive">
                     <table class="admin-table">
@@ -548,6 +554,7 @@
                                 <th>Số chỗ</th>
                                 <th>Số tầng</th>
                                 <th>Tổng chuyến đã chạy</th>
+                                <th>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="tb-buses">
@@ -560,7 +567,91 @@
         </div>
     </div>
 
+    
+    <!-- MODAL THÊM / SỬA CHUYẾN XE -->
+    <div id="trip-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-btn" onclick="closeTripModal()">&times;</span>
+            <h2 class="modal-title" id="trip-modal-title">Thêm Chuyến Xe Mới</h2>
+            <form id="trip-form" onsubmit="saveTrip(event)">
+                <input type="hidden" id="trip-id" value="">
+                <div class="input-group"><label>Ngày khởi hành</label><input type="date" id="trip-date" required></div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="input-group" style="flex: 1;"><label>Tuyến đường</label><select id="trip-route" required></select></div>
+                    <div class="input-group" style="flex: 1;"><label>Xe khách</label><select id="trip-bus" required></select></div>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="input-group" style="flex: 1;"><label>Giờ khởi hành</label><input type="time" id="trip-time" required></div>
+                    <div class="input-group" style="flex: 1;"><label>Giá vé (VNĐ)</label><input type="number" id="trip-price" min="0" step="1000" required></div>
+                </div>
+                <button type="submit" class="btn-submit" id="trip-submit-btn">Lưu chuyến xe</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL THÊM / SỬA XE KHÁCH -->
+    <div id="bus-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-btn" onclick="closeBusModal()">&times;</span>
+            <h2 class="modal-title" id="bus-modal-title">Thêm Xe Khách Mới</h2>
+            <form id="bus-form" onsubmit="saveBus(event)">
+                <input type="hidden" id="bus-old-plate" value="">
+                <div class="input-group"><label>Biển số xe</label><input type="text" id="bus-plate" required placeholder="VD: 51B-123.45"></div>
+                <div class="input-group"><label>Loại xe</label>
+                    <select id="bus-type" required>
+                        <option value="Giường nằm">Giường nằm</option>
+                        <option value="Limousine">Limousine</option>
+                        <option value="Ghế ngồi">Ghế ngồi</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="input-group" style="flex: 1;"><label>Số chỗ</label><input type="number" id="bus-seats" min="1" max="100" required></div>
+                    <div class="input-group" style="flex: 1;"><label>Số tầng</label><input type="number" id="bus-decks" min="1" max="2" required></div>
+                </div>
+                <button type="submit" class="btn-submit" id="bus-submit-btn">Lưu xe khách</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SỬA KHÁCH HÀNG -->
+    <div id="customer-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-btn" onclick="closeCustomerModal()">&times;</span>
+            <h2 class="modal-title" id="customer-modal-title">Sửa Thông Tin Khách Hàng</h2>
+            <form id="customer-form" onsubmit="saveCustomer(event)">
+                <input type="hidden" id="customer-id" value="">
+                <div class="input-group"><label>Họ và tên</label><input type="text" id="customer-name" required></div>
+                <div class="input-group"><label>Số điện thoại</label><input type="text" id="customer-phone" required></div>
+                <div class="input-group"><label>Email</label><input type="email" id="customer-email"></div>
+                <button type="submit" class="btn-submit">Lưu thay đổi</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SỬA TRẠNG THÁI VÉ -->
+    <div id="booking-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-btn" onclick="closeBookingModal()">&times;</span>
+            <h2 class="modal-title">Cập Nhật Trạng Thái Vé</h2>
+            <form id="booking-form" onsubmit="saveBooking(event)">
+                <input type="hidden" id="booking-code" value="">
+                <div style="margin-bottom: 15px; font-weight: 500;">Mã Vé: <span id="display-booking-code" style="color: var(--yolo-blue);"></span></div>
+                <div class="input-group">
+                    <label>Trạng thái thanh toán</label>
+                    <select id="booking-status" required>
+                        <option value="Chờ thanh toán">Chờ thanh toán</option>
+                        <option value="Đã thanh toán">Đã thanh toán</option>
+                        <option value="Đã hủy">Đã hủy</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Cập nhật vé</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Script for Admin -->
     <script src="admin.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/vn.js"></script>
 </body>
 </html>
