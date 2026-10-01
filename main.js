@@ -781,7 +781,7 @@ async function startPaymentSession() {
 
         if (res.ok && data.success) {
             if (appState.countdownTimer) clearInterval(appState.countdownTimer);
-            
+
             // Lưu booking hiện tại
             currentSepayBooking = data.booking;
 
@@ -834,7 +834,7 @@ async function confirmPaymentResult() {
         showToast('Đang kiểm tra giao dịch với ngân hàng...', 'info');
         const res = await fetch(`${API_BASE}/payment/sepay/check/${currentSepayBooking.bookingCode}`);
         const data = await res.json();
-        
+
         if (res.ok && data.success) {
             // Thanh toán thành công!
             if (sepayInterval) clearInterval(sepayInterval);
@@ -1172,7 +1172,7 @@ function setupModals() {
                 updateAuthUI();
                 closeAuthModal();
                 showToast(`Đăng nhập thành công! Chào mừng ${data.user.FullName}`, 'success');
-                
+
                 // Nếu là Admin, tự động mở trang quản trị luôn
                 if (selectedRole === 'admin') {
                     setTimeout(() => {
@@ -1324,7 +1324,7 @@ function switchLoginRole(role) {
     const btnCustomer = document.getElementById('tab-login-customer');
     const btnAdmin = document.getElementById('tab-login-admin');
     const roleInput = document.getElementById('login-role');
-    
+
     if (roleInput) roleInput.value = role;
 
     if (role === 'admin') {
@@ -1355,13 +1355,13 @@ function switchLoginRole(role) {
 function openSePayModal(booking) {
     currentSepayBooking = booking;
     const modal = document.getElementById('sepay-modal');
-    
+
     // Nếu server trả về qrUrl thì dùng, nếu không thì tạo fallback
     const qrSrc = booking.qrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('YOLO-PAYMENT-' + booking.bookingCode)}`;
     document.getElementById('sepay-qr-img').src = qrSrc;
     document.getElementById('sepay-amount').innerText = Number(booking.totalAmount).toLocaleString('vi-VN') + ' đ';
     document.getElementById('sepay-memo').innerText = booking.bookingCode;
-    
+
     modal.style.display = 'block';
 
     // Bắt đầu polling mỗi 5 giây
@@ -1383,13 +1383,13 @@ async function manualCheckSePay() {
         showToast('Đang kiểm tra giao dịch với ngân hàng...', 'info');
         const res = await fetch(`${API_BASE}/payment/sepay/check/${currentSepayBooking.bookingCode}`);
         const data = await res.json();
-        
+
         if (res.ok && data.success) {
             // Thanh toán thành công!
             clearInterval(sepayInterval);
             document.getElementById('sepay-modal').style.display = 'none';
             showToast('Đã nhận được thanh toán! Xuất vé thành công.', 'success');
-            
+
             // Cập nhật lại trạng thái vé trên UI
             currentSepayBooking.paymentStatus = 'Đã thanh toán';
             renderETicket(currentSepayBooking);
@@ -1407,13 +1407,13 @@ async function checkSePayStatus() {
     try {
         const res = await fetch(`${API_BASE}/payment/sepay/check/${currentSepayBooking.bookingCode}`);
         const data = await res.json();
-        
+
         if (res.ok && data.success) {
             // Thanh toán thành công!
             clearInterval(sepayInterval);
             document.getElementById('sepay-modal').style.display = 'none';
             showToast('Đã nhận được thanh toán! Xuất vé thành công.', 'success');
-            
+
             // Cập nhật lại trạng thái vé trên UI
             currentSepayBooking.paymentStatus = 'Đã thanh toán';
             renderETicket(currentSepayBooking);

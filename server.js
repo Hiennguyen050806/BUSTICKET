@@ -438,7 +438,7 @@ app.get('/api/trips', async (req, res) => {
             const [y, m, d] = date.split('-');
             trips = trips.filter(t => {
                 const tripDate = new Date(t.departureTime);
-                return tripDate.getFullYear() == y && (tripDate.getMonth()+1) == m && tripDate.getDate() == d;
+                return tripDate.getFullYear() == y && (tripDate.getMonth() + 1) == m && tripDate.getDate() == d;
             });
         }
         if (busType && busType !== 'all') {
@@ -746,20 +746,22 @@ app.get('/api/bookings/lookup', async (req, res) => {
             if (!result.recordset.length) return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin vé!' });
 
             const r = result.recordset[0];
-            return res.json({ success: true, booking: {
-                bookingCode: r.BookingCode, tripId: r.TripID,
-                departurePoint: r.DeparturePoint, destinationPoint: r.DestinationPoint,
-                departureStation: r.DepartureStation, destinationStation: r.DestinationStation,
-                departureTime: r.DepartureTime, busType: r.BusType,
-                customerName: r.CustomerName, customerPhone: r.CustomerPhone, customerEmail: r.CustomerEmail,
-                seats: r.SeatsList ? r.SeatsList.split(',') : [],
-                seatCount: r.SeatsList ? r.SeatsList.split(',').length : 0,
-                unitPrice: Number(r.TotalAmount) / Math.max(1, r.SeatsList ? r.SeatsList.split(',').length : 1),
-                totalAmount: Number(r.TotalAmount),
-                pickupPoint: r.PickupPoint, dropoffPoint: r.DropoffPoint,
-                paymentMethod: r.PaymentMethod, paymentStatus: r.PaymentStatus,
-                createdAt: r.CreatedAt
-            }});
+            return res.json({
+                success: true, booking: {
+                    bookingCode: r.BookingCode, tripId: r.TripID,
+                    departurePoint: r.DeparturePoint, destinationPoint: r.DestinationPoint,
+                    departureStation: r.DepartureStation, destinationStation: r.DestinationStation,
+                    departureTime: r.DepartureTime, busType: r.BusType,
+                    customerName: r.CustomerName, customerPhone: r.CustomerPhone, customerEmail: r.CustomerEmail,
+                    seats: r.SeatsList ? r.SeatsList.split(',') : [],
+                    seatCount: r.SeatsList ? r.SeatsList.split(',').length : 0,
+                    unitPrice: Number(r.TotalAmount) / Math.max(1, r.SeatsList ? r.SeatsList.split(',').length : 1),
+                    totalAmount: Number(r.TotalAmount),
+                    pickupPoint: r.PickupPoint, dropoffPoint: r.DropoffPoint,
+                    paymentMethod: r.PaymentMethod, paymentStatus: r.PaymentStatus,
+                    createdAt: r.CreatedAt
+                }
+            });
         }
 
         // Embedded mode
@@ -873,7 +875,7 @@ app.get('/api/payment/sepay/check/:code', async (req, res) => {
         }
 
         if (!booking) return res.status(404).json({ success: false, message: 'Không tìm thấy vé' });
-        
+
         // Nếu đã thanh toán rồi thì trả về thành công luôn
         if ((booking.PaymentStatus || booking.paymentStatus) === 'Đã thanh toán') {
             return res.json({ success: true, message: 'Đã thanh toán thành công' });
@@ -908,7 +910,8 @@ app.get('/api/payment/sepay/check/:code', async (req, res) => {
 
                 if (bookingTime > 0 && tx.transaction_date) {
                     const txTime = new Date(tx.transaction_date.replace(' ', 'T')).getTime();
-                    if (!isNaN(txTime) && txTime < (bookingTime - 10 * 60 * 1000)) {
+                    // Nới lỏng kiểm tra thời gian xuống 24h để tránh lỗi lệch múi giờ 7 tiếng giữa SQL Server và Node.js
+                    if (!isNaN(txTime) && txTime < (bookingTime - 24 * 60 * 60 * 1000)) {
                         return false;
                     }
                 }
@@ -1101,7 +1104,7 @@ app.get('/api/admin/trips', async (req, res) => {
             const [y, m, d] = date.split('-');
             trips = trips.filter(t => {
                 const tripDate = new Date(t.departureTime);
-                return tripDate.getFullYear() == y && (tripDate.getMonth()+1) == m && tripDate.getDate() == d;
+                return tripDate.getFullYear() == y && (tripDate.getMonth() + 1) == m && tripDate.getDate() == d;
             });
         }
         trips.sort((a, b) => new Date(b.departureTime) - new Date(a.departureTime));
@@ -1389,7 +1392,7 @@ app.post('/api/admin/customers', async (req, res) => {
                 .query(`INSERT INTO Customer (FullName, Email, PhoneNumber, Password, IsAdmin) VALUES (@name, @email, @phone, '123456', 0)`);
             return res.json({ success: true, message: 'Thêm khách hàng thành công!' });
         }
-        
+
         const newId = dbData.customers.length > 0 ? Math.max(...dbData.customers.map(c => c.customerId || c.id || 0)) + 1 : 1;
         dbData.customers.push({ customerId: newId, fullName, email, phone, isAdmin: false });
         saveDatabase();
@@ -1410,7 +1413,7 @@ app.delete('/api/admin/customers/:id', async (req, res) => {
                 .query('DELETE FROM Customer WHERE CustomerID = @id');
             return res.json({ success: true, message: 'Xóa khách hàng thành công!' });
         }
-        
+
         dbData.customers = dbData.customers.filter(c => (c.customerId || c.id) != id);
         saveDatabase();
         res.json({ success: true, message: 'Xóa khách hàng thành công!' });
@@ -1433,7 +1436,7 @@ app.put('/api/admin/customers/:id', async (req, res) => {
                 .query(`UPDATE Customer SET FullName = @name, Email = @email, PhoneNumber = @phone WHERE CustomerID = @id`);
             return res.json({ success: true, message: 'Cập nhật thành công!' });
         }
-        
+
         const c = dbData.customers.find(x => (x.customerId || x.id) == id);
         if (c) {
             if (fullName) c.fullName = fullName;
@@ -1531,7 +1534,7 @@ initMSSQL().then(() => {
         console.log(`🏢 Trụ sở chính: 1 Võ Văn Ngân, TP. Thủ Đức, TP.HCM`);
         console.log(`📞 Hotline CSKH: 0963076842 | ✉️ Email: hien05082006@gmail.com`);
         console.log(`💾 Database: ${useMSSQL ? 'SQL Server (BusTicketDB)' : 'Embedded Data Engine'}`);
-        console.log(`📊 Admin Dashboard API: http://localhost:${PORT}/api/admin/stats`);
+        console.log(`📊 Admin Dashboard API: http://localhost:${PORT}/`);
         console.log(`=======================================================`);
     });
 });
