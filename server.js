@@ -14,18 +14,24 @@ app.use(express.static(__dirname));
 // =======================================================================
 // CẤU HÌNH KẾT NỐI MS SQL SERVER
 // =======================================================================
+// Hỗ trợ Windows Authentication (Trusted Connection) HOẶC SQL Server Auth
+const useTrustedConnection = process.env.DB_TRUSTED === 'true' || !process.env.DB_USER;
 const dbConfig = {
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD || '123456',
     database: process.env.DB_NAME || 'BusTicketDB',
-    server: process.env.DB_SERVER || 'localhost',
-    port: parseInt(process.env.DB_PORT || '1433'),
+    server: process.env.DB_SERVER || 'localhost\\SQLEXPRESS',
     options: {
         encrypt: false,
         trustServerCertificate: true,
-        connectTimeout: 3000
+        connectTimeout: 10000,
+        trustedConnection: useTrustedConnection,
+        // Dùng Windows Auth khi không có user/password hoặc DB_TRUSTED=true
     }
 };
+if (!useTrustedConnection) {
+    dbConfig.user = process.env.DB_USER;
+    dbConfig.password = process.env.DB_PASSWORD;
+    if (process.env.DB_PORT) dbConfig.port = parseInt(process.env.DB_PORT);
+}
 
 let sql = null;
 let mssqlPool = null;

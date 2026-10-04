@@ -454,12 +454,32 @@
             <div id="tab-trips" class="data-panel">
                 <div class="panel-controls">
                     <h2 class="section-title">Danh sách Chuyến xe</h2>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="date" id="filter-trip-date" class="input-field" style="width: auto;">
-                        <button class="btn btn-primary" onclick="loadTrips()">Lọc</button>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        <select id="filter-trip-dep" class="input-field" style="width: auto; min-width: 130px;">
+                            <option value="">-- Điểm đi --</option>
+                            <option value="Sài Gòn">Sài Gòn</option>
+                            <option value="Đà Lạt">Đà Lạt</option>
+                            <option value="Cần Thơ">Cần Thơ</option>
+                            <option value="Nha Trang">Nha Trang</option>
+                            <option value="Vũng Tàu">Vũng Tàu</option>
+                            <option value="Phan Thiết">Phan Thiết</option>
+                        </select>
+                        <select id="filter-trip-des" class="input-field" style="width: auto; min-width: 140px;">
+                            <option value="">-- Điểm đến --</option>
+                            <option value="Sài Gòn">Sài Gòn</option>
+                            <option value="Đà Lạt">Đà Lạt</option>
+                            <option value="Cần Thơ">Cần Thơ</option>
+                            <option value="Nha Trang">Nha Trang</option>
+                            <option value="Vũng Tàu">Vũng Tàu</option>
+                            <option value="Phan Thiết">Phan Thiết</option>
+                        </select>
+                        <input type="date" id="filter-trip-date" class="input-field" style="width: auto;" title="Lọc theo ngày">
+                        <button class="btn btn-primary" onclick="showLoading(); loadTrips()"><i class="fa-solid fa-filter"></i> Lọc</button>
+                        <button class="btn" style="background:var(--bg-subtle);border:1px solid var(--border-color);" onclick="resetTripFilter()" title="Xóa bộ lọc"><i class="fa-solid fa-rotate-left"></i> Reset</button>
                         <button class="btn btn-primary" onclick="openTripModal()"><i class="fa-solid fa-plus"></i> Thêm chuyến</button>
                     </div>
                 </div>
+
                 <div class="table-responsive">
                     <table class="admin-table">
                         <thead>

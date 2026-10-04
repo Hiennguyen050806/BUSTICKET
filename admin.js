@@ -210,8 +210,16 @@ async function loadRevenueChart(days) {
 async function loadTrips() {
     try {
         const dateFilter = document.getElementById('filter-trip-date').value;
+        const depFilter = document.getElementById('filter-trip-dep') ? document.getElementById('filter-trip-dep').value : '';
+        const desFilter = document.getElementById('filter-trip-des') ? document.getElementById('filter-trip-des').value : '';
+
+        // Reset về trang 1 TRƯỚC khi build URL (fix bug cũ: reset sau khi build)
+        if (dateFilter || depFilter || desFilter) currentPages.trips = 1;
+
         let url = `${API_BASE}/trips?limit=${ITEMS_PER_PAGE}&page=${currentPages.trips}`;
-        if (dateFilter) { url += `&date=${dateFilter}`; currentPages.trips = 1; }
+        if (dateFilter) url += `&date=${dateFilter}`;
+        if (depFilter)  url += `&departure=${encodeURIComponent(depFilter)}`;
+        if (desFilter)  url += `&destination=${encodeURIComponent(desFilter)}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -242,9 +250,23 @@ async function loadTrips() {
         if (data.success && data.total !== undefined) renderPagination('pagination-trips', data.total, 'trips');
     } catch (err) {
         console.error(err);
+        document.getElementById('tb-trips').innerHTML = '<tr><td colspan="7" style="text-align:center;color:red"><i class="fa-solid fa-triangle-exclamation"></i> Lỗi kết nối máy chủ!</td></tr>';
     }
     hideLoading();
 }
+
+function resetTripFilter() {
+    const df = document.getElementById('filter-trip-date');
+    const dd = document.getElementById('filter-trip-dep');
+    const ds = document.getElementById('filter-trip-des');
+    if (df) df.value = '';
+    if (dd) dd.value = '';
+    if (ds) ds.value = '';
+    currentPages.trips = 1;
+    showLoading();
+    loadTrips();
+}
+
 
 async function deleteCustomer(id) {
     if (!confirm(`Bạn có chắc chắn muốn xóa khách hàng #${id} không?`)) return;
